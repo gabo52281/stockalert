@@ -196,6 +196,21 @@ const MOVEMENT_COLUMNS_REPORT = [
   { key: 'notes', label: 'Observaciones' },
 ];
 
+// Los alias de salida no son visibles en el mismo SELECT: se califican las columnas.
+const MOVEMENT_SELECT = {
+  movement_date: 'm.movement_date',
+  type: 'm.type',
+  product_code: 'p.code AS product_code',
+  product_name: 'p.name AS product_name',
+  quantity: 'm.quantity',
+  stock_before: 'm.stock_before',
+  stock_after: 'm.stock_after',
+  user_name: 'u.name AS user_name',
+  supplier_name: 's.name AS supplier_name',
+  reason: 'm.reason',
+  notes: 'm.notes',
+};
+
 function movementFilters(filters, forceType) {
   const where = [];
   const values = [];
@@ -228,6 +243,25 @@ function movementFilters(filters, forceType) {
     where.push(`m.movement_date <= $${values.length}`);
   }
   return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', values };
+}
+
+/** Resuelve nombres legibles para los filtros sin exponer SQL dinámico. */
+async function resolveFilterLabels(filters = {}) {
+  const lookups = [
+    ['productId', 'products'],
+    ['categoryId', 'categories'],
+    ['supplierId', 'suppliers'],
+    ['userId', 'users'],
+  ];
+  const labels = {};
+
+  await Promise.all(lookups.map(async ([key, table]) => {
+    if (!filters[key]) return;
+    const { rows } = await query(`SELECT name FROM ${table} WHERE id = $1 LIMIT 1`, [filters[key]]);
+    if (rows[0]?.name) labels[key] = rows[0].name;
+  }));
+
+  return labels;
 }
 
 async function reportData(name, filters) {
@@ -294,17 +328,24 @@ async function reportData(name, filters) {
     const forced = name === 'movements-in' ? 'IN' : name === 'movements-out' ? 'OUT' : null;
     const { clause, values } = movementFilters(filters, forced);
     const { rows: result } = await query(
-      `SELECT ${MOVEMENT_COLUMNS_REPORT.map((c) => c.key).join(', ')} ${FROM} ${clause}
+      `SELECT ${MOVEMENT_COLUMNS_REPORT.map((c) => MOVEMENT_SELECT[c.key]).join(', ')} ${FROM} ${clause}
         ORDER BY m.movement_date DESC, m.id DESC LIMIT 5000`,
       values,
     );
     rows = result;
   }
 
-  return { title: TITLES[name], columns, rows, filters, generatedAt: new Date() };
+  return {
+    title: TITLES[name],
+    columns,
+    rows,
+    filters,
+    filterLabels: await resolveFilterLabels(filters),
+    generatedAt: new Date(),
+  };
 }
 
 module.exports = {
   alertSummary, findAlerts, alertDetail, indicatorsSummary,
-  coverageList, topProducts, dashboard, reportData, COLUMNS,
+  coverageList, topProducts, dashboard, reportData, resolveFilterLabels, COLUMNS,
 };

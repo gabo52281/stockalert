@@ -1,6 +1,7 @@
 'use strict';
 
 const repository = require('../repositories/ai.repository');
+const { formatCurrencyCOP } = require('../utils/format');
 
 const DEFAULT_OPTIONS = {
   days: 30,
@@ -145,6 +146,10 @@ function analyzeProduct(product, series, options = {}) {
     ? `Demanda estimada de ${round(forecast.dailyDemand)} uds/día. Con ${stock} uds disponibles y ${leadTimeDays} días de reposición, el punto de pedido sugerido es ${reorderPoint} uds.`
     : 'Sin salidas suficientes en el periodo analizado; la recomendación se basa en el estado de alerta y el stock mínimo.';
 
+  const simpleReason = daysOfCover === null
+    ? `Hay ${stock} unidades disponibles y aún no hay salidas suficientes para estimar cuánto durarán. Conviene revisar el mínimo de ${minStock} unidades.`
+    : `Quedan ${stock} unidades y, con las salidas recientes, durarían cerca de ${daysOfCover} días. Reponer ${suggestedQty} unidades cubre alrededor de ${leadTimeDays} días.`;
+
   return {
     id: toNumber(product.id),
     code: product.code,
@@ -168,13 +173,13 @@ function analyzeProduct(product, series, options = {}) {
     anomaly: anomaly.detected,
     anomalyScore: anomaly.score,
     reason,
+    simpleReason,
   };
 }
 
-function buildInsights(products, movements, options = {}) {
+function buildAnalyses(products, movements, options = {}) {
   const days = Number(options.days) || DEFAULT_OPTIONS.days;
   const leadTimeDays = Number(options.leadTimeDays) || DEFAULT_OPTIONS.leadTimeDays;
-  const limit = Number(options.limit) || DEFAULT_OPTIONS.limit;
 
   const seriesByProduct = new Map();
   for (const movement of movements) {
@@ -183,12 +188,19 @@ function buildInsights(products, movements, options = {}) {
     seriesByProduct.get(key).push(movement);
   }
 
-  const analyses = products.map((product) => analyzeProduct(
+  return products.map((product) => analyzeProduct(
     product,
     seriesByProduct.get(String(product.id)) || [],
     { days, leadTimeDays },
   ));
+}
 
+function buildInsights(products, movements, options = {}) {
+  const days = Number(options.days) || DEFAULT_OPTIONS.days;
+  const leadTimeDays = Number(options.leadTimeDays) || DEFAULT_OPTIONS.leadTimeDays;
+  const limit = Number(options.limit) || DEFAULT_OPTIONS.limit;
+
+  const analyses = buildAnalyses(products, movements, { days, leadTimeDays });
   const ranked = [...analyses].sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
   const recommendations = ranked
     .filter((item) => item.suggestedQty > 0 || item.risk === 'CRITICO' || item.risk === 'ALTO')
@@ -213,9 +225,9 @@ function buildInsights(products, movements, options = {}) {
 
   const narrative = analyses.length === 0
     ? 'No hay productos activos para analizar.'
-    : `Se analizaron ${analyses.length} productos activos. ${summary.highRiskProducts} tienen riesgo alto o crítico y ${summary.replenishmentProducts} necesitan reposición. La inversión estimada para cubrir la demanda de ${leadTimeDays} días es ${round(estimatedPurchaseCost)}.`;
+    : `Se analizaron ${analyses.length} productos activos. ${summary.highRiskProducts} tienen riesgo alto o crítico y ${summary.replenishmentProducts} necesitan reposición. La inversión estimada para cubrir ${leadTimeDays} días de reposición es ${formatCurrencyCOP(estimatedPurchaseCost)}.`;
 
-  return {
+  const result = {
     generatedAt: new Date().toISOString(),
     parameters: { days, leadTimeDays, limit },
     summary,
@@ -223,6 +235,9 @@ function buildInsights(products, movements, options = {}) {
     recommendations,
     anomalies,
   };
+
+  if (options.includeAnalyses) result.analyses = analyses;
+  return result;
 }
 
 async function insights(options = {}) {
@@ -233,6 +248,7 @@ async function insights(options = {}) {
 
 module.exports = {
   DEFAULT_OPTIONS,
+  buildAnalyses,
   normalizeSeries,
   forecastDailyDemand,
   detectAnomaly,

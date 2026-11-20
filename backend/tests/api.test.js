@@ -165,6 +165,29 @@ describeDatabase('API REST de STOCKALERT', () => {
     expect(response.body.data.parameters.leadTimeDays).toBe(14);
   });
 
+  it('expone el estado del copiloto y responde sin proveedor externo', async () => {
+    const status = await request(app)
+      .get('/api/ia/status')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(status.status).toBe(200);
+    expect(status.body.data).toHaveProperty('externalModelAvailable');
+
+    const chat = await request(app)
+      .post('/api/ia/chat')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ question: '¿Qué debo comprar esta semana?', consent: false });
+    expect(chat.status).toBe(200);
+    expect(chat.body.data.providerUsed).toBe(false);
+    expect(chat.body.data.text.length).toBeGreaterThan(10);
+
+    const modification = await request(app)
+      .post('/api/ia/chat')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ question: 'Descuenta 5 unidades de arroz', consent: true });
+    expect(modification.status).toBe(200);
+    expect(modification.body.data.text).toContain('No puedo modificar el inventario desde el chat');
+  });
+
   it('genera reportes en JSON, CSV y PDF', async () => {
     const json = await request(app)
       .get('/api/reports/inventory?format=json')
@@ -172,6 +195,8 @@ describeDatabase('API REST de STOCKALERT', () => {
     expect(json.status).toBe(200);
     expect(json.body.data.columns.length).toBeGreaterThan(0);
     expect(json.body.data.rows.length).toBeGreaterThan(0);
+    expect(Array.isArray(json.body.data.summary)).toBe(true);
+    expect(json.body.data.summary.length).toBeGreaterThan(0);
 
     const csv = await request(app)
       .get('/api/reports/inventory?format=csv')
@@ -186,6 +211,7 @@ describeDatabase('API REST de STOCKALERT', () => {
     expect(pdf.status).toBe(200);
     expect(pdf.headers['content-type']).toContain('application/pdf');
     expect(pdf.body.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.body.length).toBeGreaterThan(3000);
   });
 
   it('cierra la sesión y revoca el token', async () => {

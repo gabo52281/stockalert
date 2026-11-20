@@ -23,8 +23,8 @@ try {
   await page.getByText('Iniciar sesión').waitFor({ timeout: 10000 });
   console.log('1. Login renderizado correctamente');
 
-  await page.getByPlaceholder('usuario@empresa.com').fill('admin@stockalert.local');
-  await page.locator('input[autocomplete="current-password"]').fill('Demo1234!');
+  await page.getByPlaceholder('usuario@empresa.com').fill(process.env.E2E_EMAIL || 'admin@stockalert.local');
+  await page.locator('input[autocomplete="current-password"]').fill(process.env.E2E_PASSWORD || 'Demo1234!');
   await page.getByRole('button', { name: 'Ingresar al sistema' }).click();
   await page.waitForURL(`${BASE}/`, { timeout: 15000 });
   await page.getByText('Referencias activas').first().waitFor({ timeout: 15000 });
@@ -57,31 +57,51 @@ try {
   console.log('6. Módulo de indicadores cargado con cobertura real');
 
   await page.getByRole('link', { name: 'Asistente IA' }).click();
-  await page.getByText('Resumen del asistente').first().waitFor({ timeout: 10000 });
-  await page.getByText(/Se analizaron/).waitFor({ timeout: 15000 });
-  console.log('7. Asistente IA con análisis real cargado');
+  await page.getByText('Copiloto de inventario').first().waitFor({ timeout: 10000 });
+  await page.getByText('Recomendaciones importantes').waitFor({ timeout: 15000 });
+  await page.getByText('Chat con tu copiloto').waitFor({ timeout: 10000 });
+  console.log('7. Copiloto con recomendaciones reales cargado');
+
+  await page.getByRole('button', { name: '¿Qué debo comprar esta semana?' }).click();
+  await page.getByText(/Te recomiendo priorizar/).waitFor({ timeout: 20000 });
+  assert.ok(await page.locator('.ai-message').count() >= 2, 'El chat debe conservar el historial');
+  console.log('8. Chat respondió y conservó el historial');
+
+  await page.getByRole('button', { name: /Tengo \$ 500\.000/ }).click();
+  await page.locator('.ai-mini-table').waitFor({ timeout: 20000 });
+  assert.ok(await page.locator('.ai-mini-table tbody tr').count() > 0, 'El plan presupuestario debe tener filas');
+  console.log('9. Plan dentro de presupuesto con tabla pequeña');
+
+  await page.getByRole('button', { name: /Nueva conversación/ }).click();
+  assert.equal(await page.locator('.ai-message').count(), 1, 'Nueva conversación debe reiniciar el historial');
+  console.log('10. Nueva conversación reinicia el historial');
 
   await page.getByRole('link', { name: 'Reportes' }).click();
   await page.getByText('Configuración del reporte').waitFor({ timeout: 10000 });
   await page.locator('.data-table tbody tr').first().waitFor({ timeout: 15000 });
   const reportColumns = await page.locator('.data-table thead th').count();
   assert.ok(reportColumns > 0, 'El reporte debe mostrar columnas');
-  console.log('8. Reportes con vista previa de', reportColumns, 'columnas');
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 20000 }),
+    page.getByRole('button', { name: 'Exportar PDF' }).click(),
+  ]);
+  assert.match(download.suggestedFilename(), /\.pdf$/);
+  console.log('11. Reportes con vista previa y descarga PDF:', download.suggestedFilename());
 
   // 3. Cierre de sesión
   await page.locator('.user-menu__trigger').click();
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await page.waitForURL(`${BASE}/login`, { timeout: 10000 });
-  console.log('9. Logout y redirección verificados');
+  console.log('12. Logout y redirección verificados');
 
   // 4. Vista móvil
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: 'networkidle' });
   assert.ok(await page.getByRole('button', { name: 'Ingresar al sistema' }).isVisible());
-  console.log('10. Diseño responsive en 390 px verificado');
+  console.log('13. Diseño responsive en 390 px verificado');
 
   assert.deepEqual(errors, [], `Errores de consola/navegador: ${errors.join(' | ')}`);
-  console.log('\nE2E: 10 comprobaciones superadas, sin errores de JavaScript.');
+  console.log('\nE2E: 13 comprobaciones superadas, sin errores de JavaScript.');
 } finally {
   await browser.close();
 }

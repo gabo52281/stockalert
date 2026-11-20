@@ -13,6 +13,7 @@ module.exports = [
         process: 'readonly', console: 'readonly', Buffer: 'readonly',
         __dirname: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
         setInterval: 'readonly', clearInterval: 'readonly', URL: 'readonly',
+        fetch: 'readonly', AbortController: 'readonly',
         describe: 'readonly', it: 'readonly', expect: 'readonly',
         beforeAll: 'readonly', afterAll: 'readonly', beforeEach: 'readonly', afterEach: 'readonly',
       },

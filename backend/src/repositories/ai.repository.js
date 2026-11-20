@@ -30,4 +30,18 @@ async function loadInventorySignals(days) {
   return { products: products.rows, movements: movements.rows };
 }
 
-module.exports = { loadInventorySignals };
+/** Totales agregados y sin datos personales para el contexto del copiloto. */
+async function loadMovementTotals(days) {
+  const { rows } = await query(
+    `SELECT m.type,
+            COUNT(m.id)::int AS movements,
+            COALESCE(SUM(m.quantity), 0)::numeric AS units
+       FROM inventory_movements m
+      WHERE m.movement_date >= now() - ($1::int || ' days')::interval
+      GROUP BY m.type`,
+    [days],
+  );
+  return rows;
+}
+
+module.exports = { loadInventorySignals, loadMovementTotals };

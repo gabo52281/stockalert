@@ -3,7 +3,7 @@
 const {
   alertSettingsSchema, movementInSchema, movementOutSchema, productCreateSchema,
 } = require('../src/validations/schemas');
-const { formatReportValue } = require('../src/utils/format');
+const { formatFilterValue, formatReportValue } = require('../src/utils/format');
 
 function parseBody(schema, body) {
   return schema.safeParse({ body });
@@ -62,6 +62,18 @@ describe('validación estricta de campos numéricos', () => {
 
     it('conserva el formato numérico de las cantidades', () => {
       expect(formatReportValue(1500, { key: 'quantity', label: 'Existencia' })).toBe('1.500');
+    });
+
+    it('interpreta los NUMERIC de PostgreSQL como valores, no como miles', () => {
+      expect(formatReportValue('10.000', { key: 'quantity', label: 'Existencia' })).toBe('10');
+      expect(formatReportValue('1250.000', { key: 'quantity', label: 'Existencia' })).toBe('1.250');
+      expect(formatReportValue('1000.00', { key: 'purchase_price', label: 'Precio compra' })).toBe('$ 1.000');
+      expect(formatReportValue('1250000.00', { key: 'sale_price', label: 'Precio venta' })).toBe('$ 1.250.000');
+    });
+
+    it('formatea fechas en español colombiano', () => {
+      expect(formatReportValue('2026-11-20', { key: 'movement_date', label: 'Fecha' })).toBe('20/11/2026');
+      expect(formatFilterValue('2026-10-22')).toBe('22/10/2026');
     });
   });
 

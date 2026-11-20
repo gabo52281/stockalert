@@ -4,12 +4,13 @@ Registro de avance y estado final del proyecto tras la refactorización a Neon +
 
 ## Estado actual
 
-STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. Se conservaron todas las funcionalidades anteriores y se añadió el **Asistente IA local** por decisión posterior del usuario.
+STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. Se conservaron todas las funcionalidades anteriores; el Asistente IA evolucionó a un **copiloto conversacional** con modelo gratuito de OpenRouter, manteniendo el motor determinista local como fuente de cifras.
 
-- Backend: 5 archivos de prueba, 34/34 pruebas superadas contra la base de datos de verificación.
-- Sin base de datos: 10 pruebas puras superadas y 24 integraciones omitidas.
-- Frontend: lint limpio, build correcto y 10/10 comprobaciones E2E en navegador.
-- Despliegue real en Neon/Vercel: **no ejecutado** desde este entorno (sin credenciales ni cuenta).
+- Backend: 7 archivos de prueba, 69/69 pruebas superadas contra la base de datos de verificación.
+- Sin base de datos: 4 archivos, 44/44 pruebas puras superadas.
+- Frontend: lint limpio, build correcto y 13/13 comprobaciones E2E en navegador (más 10/10 numéricas y 10/10 de pestañas de movimientos).
+- Reportes: los 10 PDF rediseñados generados y revisados página por página; 0 superposiciones en datos reales y de estrés.
+- Despliegue real en Neon/Vercel: **no ejecutado** desde este entorno (sin credenciales ni cuenta). La clave de OpenRouter expuesta debe rotarse y configurarse solo en el backend.
 
 ## FASE 1 — Análisis y planificación
 
@@ -87,23 +88,36 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Sin proveedores externos, sin `API_KEY` y sin envío de datos: todo se calcula en backend.
 - Interfaz `/ia` integrada en menú, topbar y ruta protegida.
 
+## FASE 9 — Reportes PDF y copiloto conversacional
+
+**Estado:** COMPLETADA
+
+- Rediseño de los 10 reportes: encabezado azul oscuro con STOCKALERT, título y fecha/hora en `es-CO`, filtros legibles, tabla con anchos fijos, encabezados repetidos, altura de fila adaptable, filas alternadas suaves, cifras a la derecha, texto a la izquierda y pie `Página X de Y` calculado en dos pasadas.
+- A4 horizontal automático cuando hay 8+ columnas o 3+ columnas monetarias; resúmenes útiles por reporte; mismo formato COP/entero en PDF, CSV y vista previa.
+- `AiInsightsPage.jsx` convertida en copiloto: resumen, recomendaciones, chat con historial, indicador de progreso, tablas pequeñas, preguntas rápidas, nueva conversación y consentimiento explícito antes de enviar datos agregados.
+- Backend IA: `ai-chat.service.js` con intents, presupuesto determinista, validación de modelo gratuito (`openrouter/free`, `provider.max_price` en cero, costo 0), timeout, `max_tokens`, límite por usuario y fallback exacto en 402/429/timeout/errores de proveedor.
+- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave el modo es local y no se envían datos. No hay variables `VITE_` con secretos ni modelos de pago/fallbacks.
+
 ## Resultados reales finales
 
 | Comprobación | Resultado |
 | --- | --- |
 | `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas |
 | `npm run lint` | backend y frontend sin errores ni advertencias |
-| `npm test` con base de datos de verificación | 6 archivos, 53/53 pruebas, 2,98 s |
-| `npm run test:unit` sin base de datos | 3 archivos, 29/29 pruebas puras |
+| `npm test` con base de datos de verificación | 7 archivos, 69/69 pruebas, 3,13 s |
+| `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras |
 | `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` |
-| `npm run build` | correcto, 2107 módulos, 7,76 s, chunks de React/Recharts/iconos separados |
+| `npm run build` | correcto, 2107 módulos, 8,19 s, CSS 33,67 kB, chunks de React/Recharts/iconos separados |
 | `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
-| E2E en desarrollo | 10/10 comprobaciones, sin errores de consola |
+| E2E en desarrollo | 13/13 comprobaciones, incluye chat, historial, plan presupuestario, nueva conversación y descarga PDF; sin errores de consola |
 | E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil |
 | E2E de pestañas de movimientos | 10/10 comprobaciones: una sola pestaña activa, cambios repetidos, selección de productos, borrado de cantidades, stock, historial, alertas y responsive |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
+| Reportes PDF reales | 10/10 en `OK`: 1–8 páginas por reporte, fechas `dd/mm/aaaa`, COP sin decimales, 0 solapamientos |
+| Estrés de PDFs | 250/600/120/300 filas, hasta 101 páginas, encabezados repetidos, 0 solapamientos, sin escribir en BD |
+| Copiloto / OpenRouter | modo local sin clave; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago aplican el fallback exacto; 0 secretos en frontend |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
-| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 7,76 s |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 8,19 s |
 
 La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos.
 
@@ -118,9 +132,10 @@ Posteriormente el usuario configuró un `.env` apuntando a Neon. No se ejecutaro
 ## Limitaciones verificadas
 
 - No se ejecutaron migraciones en la Neon del usuario ni se cargó el seed allí.
-- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados.
-- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`.
+- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados. `OPENROUTER_API_KEY` debe crearse en el entorno del servicio backend; no se activó facturación ni se usó un modelo de pago.
+- La clave `sk-or-v1-…` mencionada en la conversación no se guardó ni se repitió; debe rotarse antes de usarla.
+- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`, con `OPENROUTER_API_KEY=` vacía.
 
 ## Estado final
 
-La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Además incluye el Asistente IA local y los campos numéricos/monetarios estandarizados con componentes reutilizables y validación backend estricta. El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET`, ejecutar `npm install` y `npm run dev`, y desplegar un único repositorio en Vercel con las variables de entorno del proyecto.
+La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Incluye los 10 reportes PDF rediseñados, el copiloto conversacional con modelo gratuito de OpenRouter (con motor local como respaldo y fuente de cifras) y los campos numéricos/monetarios estandarizados con validación backend estricta. El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET` y, de forma opcional, `OPENROUTER_API_KEY` ya rotada en Vercel; ejecutar `npm install` y `npm run dev`, y desplegar un único repositorio en Vercel con `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512` en el servicio backend.

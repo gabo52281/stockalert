@@ -19,8 +19,8 @@ try {
   });
 
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
-  await page.getByPlaceholder('usuario@empresa.com').fill('admin@stockalert.local');
-  await page.locator('input[autocomplete="current-password"]').fill('Demo1234!');
+  await page.getByPlaceholder('usuario@empresa.com').fill(process.env.E2E_EMAIL || 'admin@stockalert.local');
+  await page.locator('input[autocomplete="current-password"]').fill(process.env.E2E_PASSWORD || 'Demo1234!');
   await page.getByRole('button', { name: 'Ingresar al sistema' }).click();
   await page.waitForURL(`${BASE}/`, { timeout: 15000 });
 

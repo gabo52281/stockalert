@@ -71,6 +71,8 @@ export const dashboardApi = {
 
 export const aiApi = {
   insights: (params) => api.get('/ia/insights', { params }).then(unwrap),
+  status: () => api.get('/ia/status').then(unwrap),
+  chat: (data) => api.post('/ia/chat', data).then(unwrap),
 };
 
 export const reportsApi = {

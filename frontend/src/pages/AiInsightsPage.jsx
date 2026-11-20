@@ -1,22 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle, Bot, BrainCircuit, PackagePlus, Sparkles, TrendingUp,
+  AlertTriangle, Bot, BrainCircuit, PackagePlus, RefreshCw,
+  Send, ShieldCheck, Sparkles, TrendingUp, Wallet,
 } from 'lucide-react';
 import { aiApi } from '../api/endpoints.js';
+import { errorMessage } from '../api/client.js';
 import { useApi } from '../hooks/useApi.js';
-import { formatCurrency, formatInteger, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatDateTime, formatInteger, formatNumber } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Table from '../components/ui/Table.jsx';
 import Badge from '../components/ui/Badge.jsx';
-import EmptyState from '../components/ui/EmptyState.jsx';
-import StatusPill from '../components/ui/StatusPill.jsx';
 
 const RISK_TONE = {
   CRITICO: 'danger',
   ALTO: 'danger',
   MEDIO: 'info',
   BAJO: 'neutral',
+};
+
+const RISK_LABEL = {
+  CRITICO: 'Urgente',
+  ALTO: 'Pronto',
+  MEDIO: 'Revisar',
+  BAJO: 'Estable',
 };
 
 const CONFIDENCE_LABEL = {
@@ -26,6 +33,50 @@ const CONFIDENCE_LABEL = {
   sin_historial: 'Sin historial',
 };
 
+const QUICK_QUESTIONS = [
+  '¿Qué debo comprar esta semana?',
+  '¿Qué productos se van a agotar?',
+  '¿Cuánto necesito invertir?',
+  'Tengo $ 500.000 para comprar mercancía. ¿Qué me recomiendas?',
+  '¿Cuáles son los productos con menos movimiento?',
+  '¿Cómo puedo mejorar mi inventario?',
+];
+
+const INITIAL_MESSAGE = {
+  role: 'assistant',
+  text: 'Hola. Puedo ayudarte a decidir qué reponer, cuánto invertir y qué productos necesitan atención. Mis respuestas usan los datos reales de tu inventario. ¿Qué necesitas saber?',
+  mode: 'local',
+  table: null,
+  at: new Date().toISOString(),
+};
+
+function MiniTable({ table }) {
+  if (!table?.rows?.length) return null;
+  return (
+    <div className="ai-mini-table">
+      <strong>{table.title}</strong>
+      <table>
+        <thead>
+          <tr>
+            {table.columns.map((column) => <th key={column.key}>{column.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, index) => (
+            <tr key={`${row.name || 'fila'}-${index}`}>
+              {table.columns.map((column) => (
+                <td key={column.key} className={column.align === 'right' ? 'ai-mini-table__right' : ''}>
+                  {row[column.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AiInsightsPage() {
   const [days, setDays] = useState(30);
   const [leadTimeDays, setLeadTimeDays] = useState(14);
@@ -33,152 +84,297 @@ export default function AiInsightsPage() {
     () => aiApi.insights({ days, leadTimeDays }).then((response) => response.data),
     [days, leadTimeDays],
   );
+  const { data: aiStatus } = useApi(() => aiApi.status().then((response) => response.data), []);
 
-  const columns = [
-    {
-      key: 'name',
-      label: 'Producto',
-      render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.code} · {row.category}</small></>,
-    },
+  const [messages, setMessages] = useState([INITIAL_MESSAGE]);
+  const [question, setQuestion] = useState('');
+  const [pendingQuestion, setPendingQuestion] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [localOnly, setLocalOnly] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const endRef = useRef(null);
+
+  const externalAvailable = Boolean(aiStatus?.externalModelAvailable) && !localOnly;
+  const showConsent = externalAvailable && !consent;
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [messages, sending]);
+
+  async function sendQuestion(text, forceLocal = false, consentOverride = null) {
+    const clean = String(text || '').trim();
+    if (!clean || sending) return;
+
+    const history = messages.slice(-8).map((message) => ({
+      role: message.role,
+      content: message.text,
+    }));
+
+    setQuestion('');
+    setPendingQuestion('');
+    setChatError('');
+    setMessages((previous) => [...previous, { role: 'user', text: clean, at: new Date().toISOString() }]);
+    setSending(true);
+
+    try {
+      const result = await aiApi.chat({
+        question: clean,
+        days,
+        leadTimeDays,
+        consent: forceLocal ? false : (consentOverride ?? (consent && !localOnly)),
+        history,
+      });
+      const response = result.data;
+      setMessages((previous) => [...previous, {
+        role: 'assistant',
+        text: response.text,
+        table: response.table,
+        mode: response.mode,
+        notice: response.notice,
+        model: response.model,
+        at: new Date().toISOString(),
+      }]);
+    } catch (err) {
+      setChatError(errorMessage(err));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function requestQuestion(text) {
+    if (showConsent) {
+      setPendingQuestion(String(text || '').trim());
+      setQuestion(String(text || '').trim());
+      return;
+    }
+    sendQuestion(text);
+  }
+
+  function acceptConsent() {
+    setConsent(true);
+    if (pendingQuestion) sendQuestion(pendingQuestion, false, true);
+  }
+
+  function useLocalOnly() {
+    setLocalOnly(true);
+    const pending = pendingQuestion;
+    setPendingQuestion('');
+    setQuestion('');
+    if (pending) sendQuestion(pending, true);
+  }
+
+  function newConversation() {
+    setMessages([{ ...INITIAL_MESSAGE, at: new Date().toISOString() }]);
+    setQuestion('');
+    setPendingQuestion('');
+    setChatError('');
+  }
+
+  const technicalColumns = [
+    { key: 'name', label: 'Producto', render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.code}</small></> },
     { key: 'stock', label: 'Stock', align: 'right', render: (row) => formatInteger(row.stock) },
-    {
-      key: 'forecastDailyDemand',
-      label: 'Demanda/día',
-      align: 'right',
-      render: (row) => `${formatNumber(row.forecastDailyDemand)} uds.`,
-    },
-    {
-      key: 'daysOfCover',
-      label: 'Cobertura',
-      align: 'right',
-      render: (row) => (row.daysOfCover === null ? '—' : `${formatNumber(row.daysOfCover)} días`),
-    },
-    { key: 'suggestedQty', label: 'Reponer', align: 'right', render: (row) => <strong>{formatInteger(row.suggestedQty)} uds.</strong> },
+    { key: 'forecastDailyDemand', label: 'Salida diaria', align: 'right', render: (row) => formatNumber(row.forecastDailyDemand) },
+    { key: 'daysOfCover', label: 'Días que duraría', align: 'right', render: (row) => (row.daysOfCover === null ? '—' : formatNumber(row.daysOfCover)) },
+    { key: 'suggestedQty', label: 'Reponer', align: 'right', render: (row) => formatInteger(row.suggestedQty) },
     { key: 'reorderPoint', label: 'Punto de pedido', align: 'right', render: (row) => formatInteger(row.reorderPoint) },
-    { key: 'risk', label: 'Riesgo', render: (row) => <Badge tone={RISK_TONE[row.risk] || 'neutral'}>{row.risk}</Badge> },
-    {
-      key: 'forecastConfidence',
-      label: 'Confianza',
-      render: (row) => <Badge tone="neutral">{CONFIDENCE_LABEL[row.forecastConfidence] || row.forecastConfidence}</Badge>,
-    },
+    { key: 'risk', label: 'Nivel', render: (row) => <Badge tone={RISK_TONE[row.risk] || 'neutral'}>{RISK_LABEL[row.risk] || row.risk}</Badge> },
   ];
 
   return (
     <>
       <PageHeader
-        title="Asistente IA de inventario"
-        description="Predicción local explicable basada en sus movimientos reales, sin enviar datos a servicios externos."
+        title="Copiloto de inventario"
+        description="Pregunta en lenguaje sencillo y toma decisiones con datos reales de tu inventario."
         actions={(
-          <div className="period-switch">
-            {[7, 30, 90].map((option) => (
-              <button key={option} type="button" className={days === option ? 'active' : ''} onClick={() => setDays(option)}>{option} días</button>
-            ))}
+          <div className="ai-header-actions">
+            <div className="period-switch">
+              {[7, 30, 90].map((option) => (
+                <button key={option} type="button" className={days === option ? 'active' : ''} onClick={() => setDays(option)}>{option} días</button>
+              ))}
+            </div>
+            <button type="button" className="btn btn--sm btn--ghost" onClick={newConversation}>
+              <RefreshCw size={14} /> Nueva conversación
+            </button>
           </div>
         )}
       />
 
-      <div className="formula-banner">
-        <BrainCircuit size={18} />
-        <span>
-          Suavizado exponencial con tendencia atenuada, stock de seguridad estadístico y detección de picos atípicos.
-          Reposición calculada para {leadTimeDays} días de lead time.
-        </span>
-        <select
-          className="select"
-          value={leadTimeDays}
-          onChange={(event) => setLeadTimeDays(Number(event.target.value))}
-          aria-label="Días de reposición"
-        >
-          {[7, 14, 21, 30].map((option) => <option key={option} value={option}>{option} días</option>)}
-        </select>
-      </div>
-
       {error && (
         <Card className="stat-card stat-card--orange">
-          <CardBody>No se pudo generar el análisis. Intente recargar la página.</CardBody>
+          <CardBody>No se pudo cargar el análisis automático. Intenta recargar la página.</CardBody>
         </Card>
       )}
 
-      <div className="stats-grid">
-        <Card className="stat-card stat-card--blue"><div className="stat-card__icon"><PackagePlus size={21} /></div><div><span>Productos analizados</span><strong>{formatNumber(data?.summary?.analyzedProducts || 0)}</strong></div></Card>
-        <Card className="stat-card stat-card--orange"><div className="stat-card__icon"><AlertTriangle size={21} /></div><div><span>Riesgo alto o crítico</span><strong>{formatNumber(data?.summary?.highRiskProducts || 0)}</strong></div></Card>
-        <Card className="stat-card stat-card--cyan"><div className="stat-card__icon"><TrendingUp size={21} /></div><div><span>Unidades a reponer</span><strong>{formatInteger(data?.summary?.unitsToReplenish || 0)}</strong></div></Card>
-        <Card className="stat-card stat-card--green"><div className="stat-card__icon"><Bot size={21} /></div><div><span>Inversión estimada</span><strong>{formatCurrency(data?.summary?.estimatedPurchaseCost || 0)}</strong></div></Card>
+      <div className="ai-summary-grid">
+        <Card className="summary-card summary-card--blue">
+          <PackagePlus size={21} />
+          <div><span>Productos que necesitan atención</span><strong>{formatInteger(data?.summary?.replenishmentProducts || 0)}</strong></div>
+        </Card>
+        <Card className="summary-card summary-card--critical">
+          <AlertTriangle size={21} />
+          <div><span>Productos con riesgo de agotarse</span><strong>{formatInteger(data?.summary?.highRiskProducts || 0)}</strong></div>
+        </Card>
+        <Card className="summary-card summary-card--green">
+          <Wallet size={21} />
+          <div><span>Inversión estimada para reposición</span><strong>{formatCurrency(data?.summary?.estimatedPurchaseCost || 0)}</strong></div>
+        </Card>
       </div>
-
-      {data && (
-        <Card>
-          <CardHeader
-            title="Resumen del asistente"
-            subtitle={data.generatedAt ? new Date(data.generatedAt).toLocaleString('es-CO') : ''}
-            action={<Badge tone="info"><Sparkles size={13} /> IA local</Badge>}
-          />
-          <CardBody>
-            <p className="card__subtitle">{data.narrative}</p>
-          </CardBody>
-        </Card>
-      )}
 
       <Card>
         <CardHeader
-          title="Plan de reposición sugerido"
-          subtitle="Ordenado por prioridad, riesgo y urgencia"
+          title="Recomendaciones importantes"
+          subtitle="Ordenadas por urgencia, existencias y salidas recientes"
           action={<button type="button" className="btn btn--sm btn--ghost" onClick={reload}>Actualizar</button>}
         />
         <CardBody>
-          <Table
-            columns={columns}
-            rows={data?.recommendations}
-            loading={loading}
-            emptyMessage="El asistente no encontró productos que requieran reposición"
-          />
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Anomalías detectadas" subtitle="Picos de salida superiores a 2 desviaciones sobre el promedio" />
-        <CardBody>
-          {data?.anomalies?.length ? (
-            <div className="ranking">
-              {data.anomalies.map((item) => (
-                <div key={item.id} className="ranking__row">
-                  <span className="ranking__index"><AlertTriangle size={14} /></span>
-                  <div className="ranking__bar">
-                    <div className="ranking__label"><strong>{item.name}</strong><span>{formatNumber(item.anomalyScore)} σ · {formatNumber(item.forecastDailyDemand)} uds/día</span></div>
-                    <div className="progress"><div className="progress__fill" style={{ width: `${Math.min(100, Math.max(0, item.anomalyScore * 20))}%` }} /></div>
+          {data?.recommendations?.length ? (
+            <div className="ai-recommendation-list">
+              {data.recommendations.slice(0, 4).map((item) => (
+                <div key={item.id} className="ai-recommendation">
+                  <span className="ai-recommendation__icon"><TrendingUp size={17} /></span>
+                  <div className="ai-recommendation__body">
+                    <div className="ai-recommendation__title">
+                      <strong>{item.name}</strong>
+                      <Badge tone={RISK_TONE[item.risk] || 'neutral'}>{RISK_LABEL[item.risk] || item.risk}</Badge>
+                    </div>
+                    <small>{item.code} · {item.category}</small>
+                    <p>{item.simpleReason || item.reason}</p>
+                  </div>
+                  <div className="ai-recommendation__action">
+                    <span>Reponer</span>
+                    <strong>{formatInteger(item.suggestedQty)} uds.</strong>
+                    <small>{formatCurrency(item.suggestedQty * item.purchasePrice)}</small>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <EmptyState message={loading ? 'Analizando movimientos…' : 'No se detectaron picos atípicos'} />
+            <p className="card__subtitle">{loading ? 'Analizando movimientos…' : 'No hay recomendaciones urgentes en este momento.'}</p>
           )}
         </CardBody>
       </Card>
 
-      <div className="grid-2">
-        <Card>
-          <CardHeader title="Cómo se calcula" subtitle="Modelo transparente y reproducible" />
-          <CardBody>
-            <p className="card__subtitle">
-              Demanda estimada = suavizado exponencial de las salidas diarias con tendencia atenuada.
-              Stock de seguridad = 1,65 × desviación diaria × raíz(días de reposición).
-              Punto de pedido = demanda estimada × lead time + stock de seguridad.
-            </p>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Estado de los datos" subtitle={`Ventana analizada: ${days} días`} />
-          <CardBody>
-            <p className="card__subtitle">
-              {data?.summary?.replenishmentProducts || 0} productos requieren reposición y
-              {' '}{data?.summary?.anomalyProducts || 0} presentan anomalías. Las alertas originales
-              de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
-            </p>
-            <p className="card__subtitle">Use <StatusPill value="BAJO" /> y <StatusPill value="CRITICO" /> en el módulo Alertas para el control operativo diario.</p>
-          </CardBody>
-        </Card>
-      </div>
+      <Card className="ai-chat">
+        <CardHeader
+          title="Chat con tu copiloto"
+          subtitle="Historial de esta sesión · respuestas basadas en Neon"
+          action={(
+            <Badge tone={externalAvailable ? 'info' : 'neutral'}>
+              {externalAvailable ? <Sparkles size={13} /> : <BrainCircuit size={13} />}
+              {externalAvailable ? 'Modelo gratuito disponible' : 'Análisis local'}
+            </Badge>
+          )}
+        />
+        <CardBody>
+          {showConsent && (
+            <div className="ai-consent">
+              <ShieldCheck size={18} />
+              <div>
+                <strong>Antes de usar el modelo externo</strong>
+                <p>
+                  Solo se enviará un resumen agregado (productos, existencias, cantidades sugeridas y precios).
+                  No se envían usuarios, correos ni credenciales. El análisis local sigue funcionando sin este paso.
+                </p>
+              </div>
+              <div className="ai-consent__actions">
+                <button type="button" className="btn btn--sm btn--primary" onClick={acceptConsent}>Autorizar resumen</button>
+                <button type="button" className="btn btn--sm btn--ghost" onClick={useLocalOnly}>Solo cálculos locales</button>
+              </div>
+            </div>
+          )}
+
+          <div className="ai-chat__messages">
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`ai-message ai-message--${message.role}`}>
+                <span className="ai-message__avatar">
+                  {message.role === 'assistant' ? <Bot size={16} /> : 'Tú'}
+                </span>
+                <div className="ai-message__body">
+                  <div className="ai-message__meta">
+                    <strong>{message.role === 'assistant' ? 'Copiloto' : 'Tú'}</strong>
+                    {message.role === 'assistant' && (
+                      <span>{message.mode === 'ia' ? 'Respuesta con modelo gratuito' : 'Análisis local'}</span>
+                    )}
+                    {message.at && <time>{formatDateTime(message.at)}</time>}
+                  </div>
+                  <div className="ai-message__bubble">
+                    {message.text.split('\n').map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}
+                  </div>
+                  {message.notice && <p className="ai-message__notice">{message.notice}</p>}
+                  <MiniTable table={message.table} />
+                </div>
+              </div>
+            ))}
+            {sending && (
+              <div className="ai-thinking"><span className="ai-thinking__dot" /><span className="ai-thinking__dot" /><span className="ai-thinking__dot" /> Pensando…</div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {chatError && <div className="ai-chat__error">{chatError}</div>}
+
+          <div className="ai-chat__quick">
+            {QUICK_QUESTIONS.map((item) => (
+              <button key={item} type="button" onClick={() => requestQuestion(item)} disabled={sending}>{item}</button>
+            ))}
+          </div>
+
+          <form className="ai-chat__composer" onSubmit={(event) => { event.preventDefault(); requestQuestion(question); }}>
+            <textarea
+              className="ai-chat__input"
+              rows="2"
+              value={question}
+              placeholder="Escribe tu pregunta…"
+              onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  requestQuestion(question);
+                }
+              }}
+            />
+            <button type="submit" className="btn btn--primary ai-chat__send" disabled={sending || !question.trim()}>
+              <Send size={15} /> Enviar
+            </button>
+          </form>
+        </CardBody>
+      </Card>
+
+      <details className="ai-technical">
+        <summary><BrainCircuit size={16} /> Cómo funciona el cálculo automático</summary>
+        <div className="ai-technical__body">
+          <p>
+            El motor local de STOCKALERT estima la salida diaria con el historial reciente, calcula cuánto
+            duraría cada producto y define una cantidad sugerida para cubrir {leadTimeDays} días de reposición.
+            Las alertas de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
+          </p>
+          <div className="formula-banner">
+            <BrainCircuit size={18} />
+            <span>
+              Ventana de análisis: {days} días · Tiempo estimado de reposición: {leadTimeDays} días.
+              Confianza: alta = 7 o más días con salidas, media = 3 a 6, baja = 1 o 2.
+            </span>
+            <select
+              className="select"
+              value={leadTimeDays}
+              onChange={(event) => setLeadTimeDays(Number(event.target.value))}
+              aria-label="Tiempo estimado de reposición"
+            >
+              {[7, 14, 21, 30].map((option) => <option key={option} value={option}>{option} días</option>)}
+            </select>
+          </div>
+          <Table
+            columns={technicalColumns}
+            rows={data?.recommendations}
+            loading={loading}
+            emptyMessage="No hay productos con reposición sugerida"
+          />
+          <p className="disclaimer">
+            {data?.narrative} Confianza: {CONFIDENCE_LABEL[data?.recommendations?.[0]?.forecastConfidence] || '—'}.
+          </p>
+        </div>
+      </details>
     </>
   );
 }
