@@ -61,7 +61,7 @@ Para cargar datos de demostración **solo en desarrollo**:
 npm run seed
 ```
 
-`seed` se bloquea automáticamente cuando `NODE_ENV=production`; nunca se ejecuta desde `npm run dev` ni desde el build de Vercel.
+`seed` se bloquea automáticamente cuando `NODE_ENV=production`; nunca se ejecuta desde `npm run dev` ni desde el build de ningún servicio.
 
 ## 3. Verificación local
 
@@ -73,27 +73,29 @@ npm run build
 
 Sin `DATABASE_URL`, `npm test` ejecuta solo pruebas puras y omite las integraciones. Para ejecutar la suite completa contra su BD de Neon, configure `DATABASE_URL` en el `.env` y vuelva a correr `npm test`.
 
-## 4. Despliegue en Vercel
+`npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate`, desde `npm run dev` o desde el build del servicio backend en Vercel.
 
-Un repositorio, un proyecto:
+## 4. Despliegue en Vercel Services
+
+Un repositorio, un proyecto, dos servicios (`backend` y `frontend`) en el mismo dominio:
 
 1. Suba el repositorio sin el `.env` (ignorado por Git).
-2. Vercel → *Add New* → *Project* → importe el repositorio.
-3. En *Environment Variables* configure al menos:
+2. Vercel → *Add New* → *Project* → importe el repositorio. Conserve los nombres y raíces detectados: `backend` → `backend/`, `frontend` → `frontend/`.
+3. En *Environment Variables* del proyecto configure al menos:
    - `DATABASE_URL` (pooler de Neon)
    - `DIRECT_URL` (recomendado; si no, se deriva)
    - `JWT_SECRET`
    - `CORS_ORIGIN=https://su-dominio.vercel.app`
    - `NODE_ENV=production`
-4. Despliegue. No configure un servicio externo de backend.
+4. Despliegue. No cree un backend externo ni un segundo proyecto.
 
-Qué hace Vercel con este repositorio:
+Qué hace cada servicio:
 
-- `npm install` instala los workspaces `backend` y `frontend`.
-- `npm run build`: como `VERCEL=1`, ejecuta las migraciones pendientes una vez y luego compila la SPA en `frontend/dist`.
-- `/api/(.*)` se reescribe a `api/index.js`, que exporta la app Express; `server.js` (con `listen`) no se importa.
-- El resto de rutas se reescriben a `/index.html`, por lo que las recargas de React Router funcionan.
-- La SPA usa `/api`, así que no hay URLs absolutas ni secretos en el bundle.
+- Ambos ejecutan `npm install` desde su raíz; npm detecta el workspace raíz del repositorio, por lo que las dependencias se resuelven como en local.
+- `backend`: su build (`npm run build` del workspace backend) ejecuta las migraciones pendientes una vez por despliegue. El entrypoint es `backend/api/index.js`, que exporta la app Express sin `app.listen()`; `server.js` solo se usa en local.
+- `frontend`: su build compila la SPA en `frontend/dist`. El fallback a `/index.html` está declarado dentro del servicio frontend, así que las recargas de React Router funcionan.
+- `vercel.json` enruta `/api` y `/api/*` al servicio `backend` sin quitar el prefijo, y `/health` también al backend. El resto va al frontend.
+- La SPA usa `/api`, así que no hay URLs absolutas ni secretos en el bundle. No se configuraron service bindings porque el navegador llama al mismo dominio.
 
 Después del primer despliegue, cree el administrador con `npm run admin` usando un `.env` local que apunte a la misma base de datos de Neon.
 

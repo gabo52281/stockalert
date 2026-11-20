@@ -8,7 +8,7 @@ Sistema web de gestión y control de inventarios con alertas preventivas, indica
 - **Un solo archivo de configuración:** `stockalert/.env`. El backend lo carga; el frontend nunca recibe secretos.
 - **Un solo comando para desarrollar:** `npm run dev` valida la configuración, aplica migraciones pendientes, levanta la API, levanta Vite, configura `/api` y abre el navegador.
 - **API relativa:** el frontend siempre llama a `/api`. Vite hace de proxy en desarrollo y Vercel enruta al mismo dominio en producción.
-- **Despliegue:** un repositorio y un proyecto de Vercel con una función Express (`api/index.js`).
+- **Despliegue:** un repositorio y un proyecto de Vercel Services con dos servicios: `backend` (Express) y `frontend` (Vite). No hay dominios ni despliegues separados.
 - **IA incluida:** módulo `Asistente IA` con predicción de demanda, stock de seguridad, riesgo de reposición y detección de anomalías, calculado en backend con datos reales y sin enviar información a terceros.
 
 ## Requisitos
@@ -86,7 +86,7 @@ Es un modelo **local, determinista y explicable**: no llama a proveedores extern
 
 ## Migraciones
 
-`npm run dev` y el build de Vercel ejecutan `node backend/src/scripts/migrate.js up` una sola vez por arranque/despliegue. El ejecutor:
+`npm run dev` y el build del servicio `backend` en Vercel ejecutan `node backend/src/scripts/migrate.js up` una sola vez por arranque/despliegue. El ejecutor:
 
 - Registra versiones en `schema_migrations` y aplica únicamente archivos pendientes.
 - Usa una transacción por migración y un bloqueo advisory para despliegues concurrentes.
@@ -95,28 +95,30 @@ Es un modelo **local, determinista y explicable**: no llama a proveedores extern
 
 Los archivos en `database/migrations/` y `database/seeds/` se conservan sin cambios.
 
-## Despliegue en Vercel (mínimo)
+## Despliegue en Vercel Services
 
 1. Suba este repositorio a GitHub (sin `.env`; está ignorado).
-2. En Vercel: **Add New → Project** e importe ese repositorio. No cree un backend por separado.
-3. Configure las variables de entorno del proyecto con los valores del `.env` local. En producción use `CORS_ORIGIN=https://su-dominio.vercel.app` y `NODE_ENV=production`.
-4. Despliegue. Vercel ejecuta `npm install`, `npm run build` (que aplica las migraciones pendientes) y sirve `frontend/dist`; las rutas `/api/*` se envían a `api/index.js`, que exporta la app Express sin llamar a `listen()`.
+2. En Vercel: **Add New → Project** e importe ese repositorio. Vercel detecta dos servicios; conserve los nombres `backend` y `frontend` y sus raíces `backend/` y `frontend/`.
+3. Configure las variables de entorno del proyecto: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CORS_ORIGIN=https://su-dominio.vercel.app` y `NODE_ENV=production`. Se inyectan por entorno; no se crea un `.env` en Vercel.
+4. Despliegue. Cada servicio instala y compila sus dependencias de forma independiente:
+   - `backend` exporta Express desde `backend/api/index.js` (sin `app.listen()`) y su build ejecuta las migraciones pendientes una sola vez por despliegue.
+   - `frontend` compila la SPA en `frontend/dist` y sirve el fallback de React Router.
 5. Cree el administrador apuntando a la misma BD de Neon con `npm run admin` desde una máquina que tenga el `.env` correspondiente.
 
-`vercel.json` contiene los rewrites de `/api` y el fallback de React Router, por lo que recargar `/productos`, `/ia`, etc. funciona.
+`vercel.json` enruta `/api` y `/api/*` al servicio `backend` (sin quitar el prefijo), `/health` también al backend y el resto al servicio `frontend`. Recargar `/productos`, `/ia`, etc. funciona gracias al fallback definido dentro del servicio frontend. No se añadieron service bindings: el navegador llama a `/api` en el mismo dominio.
 
-No se ha realizado un despliegue real a Neon/Vercel desde este entorno: las verificaciones locales se detallan en [`docs/pruebas.md`](docs/pruebas.md).
+No se ha realizado un despliegue real en Vercel ni se ejecutaron migraciones en Neon desde este entorno: las verificaciones locales se detallan en [`docs/pruebas.md`](docs/pruebas.md).
 
 ## Estructura
 
 ```text
-api/index.js              función Express para Vercel
 backend/                  API REST, servicios, repositorios, scripts
+backend/api/index.js      entrada Express del servicio backend en Vercel
 database/migrations/      DDL versionado (fuente de verdad)
 database/seeds/           datos demo, nunca automáticos en producción
-frontend/                 SPA React + Vite
+frontend/                 SPA React + Vite (servicio frontend)
 scripts/                  orquestación de dev y build
-vercel.json               rewrites y configuración de un solo proyecto
+vercel.json               definición de servicios y rewrites de Vercel Services
 .env.example              única plantilla de configuración
 ```
 

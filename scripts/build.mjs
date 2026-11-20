@@ -18,14 +18,8 @@ function run(script, args, cwd) {
 }
 
 async function main() {
-  // En Vercel las variables llegan por entorno: las migraciones se aplican una
-  // sola vez durante el build/despliegue, nunca por petición HTTP.
-  const isDeploy = process.env.VERCEL === '1' || process.env.STOCKALERT_RUN_MIGRATIONS === '1';
-  if (isDeploy) {
-    console.log('Aplicando migraciones pendientes antes de compilar...');
-    await run(path.join(ROOT_DIR, 'backend', 'src', 'scripts', 'migrate.js'), ['up'], ROOT_DIR);
-  }
-
+  // En Vercel Services cada servicio compila por separado: las migraciones las
+  // ejecuta el build del servicio backend. Este script solo compila la SPA.
   console.log('Compilando frontend...');
   await run(resolveViteBin(), ['build'], path.join(ROOT_DIR, 'frontend'));
 }

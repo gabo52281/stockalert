@@ -1,6 +1,6 @@
 # API REST
 
-Base URL relativa: `/api` (el frontend siempre usa esta ruta). En desarrollo Vite la redirige a `http://localhost:<PORT>/api`, donde `PORT` se define en el único `.env` de la raíz (4000 por defecto). En Vercel, `/api/*` se enruta a la función Express del mismo proyecto.
+Base URL relativa: `/api` (el frontend siempre usa esta ruta). En desarrollo Vite la redirige a `http://localhost:<PORT>/api`, donde `PORT` se define en el único `.env` de la raíz (4000 por defecto). En Vercel Services, `/api` y `/api/*` se enrutan al servicio `backend` conservando el prefijo.
 
 ## 1. Formato de respuesta
 

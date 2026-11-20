@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "API REST de STOCKALERT",
-  "main": "src/server.js",
+  "main": "api/index.js",
   "scripts": {
+    "build": "node src/scripts/migrate.js up",
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "test": "vitest run --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",

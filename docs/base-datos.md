@@ -13,7 +13,7 @@ Motor: PostgreSQL administrado en **Neon** (PostgreSQL 14+). No hay PostgreSQL l
 
 El runner `backend/src/scripts/migrate.js` mantiene `schema_migrations`, detecta las versiones ya aplicadas, aplica solo las pendientes en una transacción por archivo y permite `up`, `down` y `status`. Usa `pg_advisory_lock(742001)` para que dos despliegues concurrentes no apliquen la misma migración dos veces. En Neon usa la conexión directa (`DIRECT_URL` o derivada de la URL `-pooler`), porque las migraciones son DDL y no deben ejecutarse por el pooler en modo transacción. `001_init.sql` crea `pgcrypto` con `IF NOT EXISTS`; Neon lo soporta.
 
-Las migraciones se ejecutan únicamente desde `npm run dev`, `npm run migrate` o el build de Vercel (`VERCEL=1`). Nunca se ejecutan por petición HTTP y no eliminan datos.
+Las migraciones se ejecutan únicamente desde `npm run dev`, `npm run migrate` o el build del servicio `backend` en Vercel Services. Nunca se ejecutan por petición HTTP y no eliminan datos.
 
 ## 2. Tablas
 
@@ -110,7 +110,7 @@ Esta vista es consumida por productos, alertas, dashboard, indicadores y reporte
 - 4 usuarios (uno inactivo) con contraseña hash bcrypt generada en tiempo de ejecución.
 - 313 movimientos distribuidos en los últimos 30 días, con `source_key` prefijado `DEMO-`.
 
-El seed es idempotente y está pensado **solo para demostración**; `npm run seed` se bloquea automáticamente cuando `NODE_ENV=production` y nunca se ejecuta desde `npm run dev` ni desde el build. En producción se crea el administrador con `npm run admin` y los datos se cargan desde cero mediante movimientos reales.
+El seed es idempotente y está pensado **solo para demostración**; `npm run seed` se bloquea automáticamente cuando `NODE_ENV=production` y nunca se ejecuta desde `npm run dev` ni desde el build de ningún servicio. En producción se crea el administrador con `npm run admin` y los datos se cargan desde cero mediante movimientos reales.
 
 ## 6. Datos usados por el asistente IA
 

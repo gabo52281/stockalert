@@ -1,6 +1,6 @@
 # Pruebas y verificación
 
-Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20. No se afirma una conexión real a Neon ni un despliegue en Vercel.
+Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20. No se ejecutaron migraciones en Neon ni despliegue en Vercel. La conexión a Neon solo se ejerció al ejecutar la suite con el `.env` configurado por el usuario, tal como se detalla en la sección 3.
 
 ## 1. Entorno usado
 
@@ -54,6 +54,8 @@ Duration    1.23s
 Esto confirma que la raíz puede ejecutar `npm test` sin PostgreSQL siempre que no se configure `DATABASE_URL`; las integraciones se omiten en lugar de fallar.
 
 Nota: Vitest muestra un aviso informativo sobre el build CJS de la API de Vite; no afecta a los resultados.
+
+**Verificación posterior con una Neon recién creada:** al ejecutar `npm test` con el `.env` apuntando a la Neon configurada por el usuario (sin datos demo), `tests/api.test.js` falla en `beforeAll` porque espera `admin@stockalert.local` / `Demo1234!`. Resultado real: 4 archivos OK, 1 fallido; 20 pruebas superadas, 14 omitidas. Los otros 4 archivos (`ai`, `alerts`, `metrics`, `neon`) pasan. No es una regresión del cambio de Vercel Services: la suite de API necesita una base con datos demo (o credenciales de prueba equivalentes). No se cargó el seed en esa base.
 
 ## 4. Lint
 
@@ -124,10 +126,15 @@ E2E: 10 comprobaciones superadas, sin errores de JavaScript.
 
 La prueba comprueba que no haya errores de consola ni excepciones de página. La pasada contra producción usó `NODE_ENV=production`, `CORS_ORIGIN=http://127.0.0.1:4100`, `E2E_BASE_URL=http://127.0.0.1:4100` y el `frontend/dist` generado por `npm run build`.
 
-## 8. Configuración de Vercel verificada localmente
+## 8. Configuración de Vercel Services verificada localmente
 
-- `vercel.json` es JSON válido y declara `installCommand`, `buildCommand`, `outputDirectory` y los rewrites de `/api` y SPA.
-- `api/index.js` exporta la app Express; al importarla con `VERCEL=1` no se llama a `listen()`.
+- `vercel.json` es JSON válido y usa el formato `services` con `backend` y `frontend`, sin comandos globales de build.
+- Cada servicio declara su propio `installCommand` y `buildCommand`: `backend` ejecuta las migraciones pendientes una vez por despliegue; `frontend` compila la SPA en `dist`.
+- Los rewrites raíz envían `/api`, `/api/*` y `/health` al servicio `backend` y el resto al servicio `frontend`. El fallback a `/index.html` está dentro del servicio frontend.
+- No hay `bindings`: el navegador llama a `/api` en el mismo dominio.
+- `backend/api/index.js` exporta la app Express; al importarla con `VERCEL=1` y variables de entorno de prueba no se llama a `listen()` y el proceso termina.
+- Validación en checkout limpio: `npm install --dry-run` desde `backend/` resolvería 331 paquetes y desde `frontend/` 320, usando el workspace raíz del repositorio.
+- `npm run build --workspace=frontend` compila la SPA correctamente (2097 módulos, 6,00 s en la última pasada).
 - En `app.js`, el sirvido estático de `frontend/dist` se desactiva cuando `VERCEL` está definido, porque la plataforma sirve los archivos.
 - El bundle de frontend usa `baseURL: '/api'`; no aparece `VITE_API_URL` ni secretos en el código compilado.
 
@@ -166,4 +173,4 @@ $env:E2E_BASE_URL='http://localhost:4000'
 npm run test:e2e --workspace=frontend
 ```
 
-Para ejecutar la suite completa contra Neon, basta con que `DATABASE_URL` y `JWT_SECRET` estén en el `.env` raíz o en el entorno; las integraciones se activan automáticamente. Para forzar migraciones durante un build local: `STOCKALERT_RUN_MIGRATIONS=1 npm run build`.
+Para ejecutar la suite completa contra Neon, basta con que `DATABASE_URL` y `JWT_SECRET` estén en el `.env` raíz o en el entorno; las integraciones se activan automáticamente. Para aplicar migraciones de forma explícita: `npm run migrate`.

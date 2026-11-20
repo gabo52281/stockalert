@@ -71,9 +71,10 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Único `.env` raíz cargado por backend, scripts de migración y orquestadores.
 - Pool de API pequeño (`max: 5`), TLS verificado para `*.neon.tech` y URL directa derivada de `-pooler`.
 - `migrate.js` usa URL directa, transacción por archivo y `pg_advisory_lock` para despliegues concurrentes.
-- `api/index.js` exporta la app Express sin `listen()`; `vercel.json` enruta `/api/*` a esa función y hace fallback de React Router.
+- `backend/api/index.js` exporta la app Express sin `listen()`; es el entrypoint del servicio `backend` en Vercel Services.
+- `vercel.json` usa el formato `services` con `backend` y `frontend`: enruta `/api` y `/api/*` al backend conservando el prefijo, `/health` al backend y el resto al frontend con fallback de React Router dentro de ese servicio.
 - `npm run dev`: valida configuración, migra, levanta API y Vite, espera `/health`, abre el navegador y muestra errores comprensibles.
-- `npm run build`: compila la SPA y aplica migraciones solo cuando `VERCEL=1` o `STOCKALERT_RUN_MIGRATIONS=1`.
+- Cada servicio instala y compila por separado. El build del servicio backend ejecuta las migraciones pendientes una vez por despliegue; el build del frontend solo compila la SPA.
 
 ## FASE 8 — Asistente IA local
 
@@ -98,12 +99,16 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 | `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
 | E2E en desarrollo | 10/10 comprobaciones, sin errores de consola |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
+| Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2097 módulos, 6,00 s |
 
-La verificación con base de datos usó el PostgreSQL de prueba ya existente en `127.0.0.1:55432` como fixtures temporal. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron.
+La verificación original con base de datos usó el PostgreSQL de prueba ya existente en `127.0.0.1:55432` como fixture temporal. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron.
+
+Posteriormente el usuario configuró un `.env` apuntando a Neon. No se ejecutaron migraciones allí. Al correr `npm test` contra esa base sin datos demo, el resultado fue 4 archivos OK y 1 fallido (`api.test.js`, login demo 401); 20 pruebas pasaron y 14 se omitieron. Las pruebas de alertas y métricas crearon productos temporales y los limpiaron.
 
 ## Limitaciones verificadas
 
-- No hay credenciales de Neon en este entorno: no se afirma conexión real ni migraciones aplicadas en Neon.
+- No se ejecutaron migraciones en la Neon del usuario ni se cargó el seed allí.
 - No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados.
 - `.env` está ignorado por Git; el repositorio solo versiona `.env.example`.
 

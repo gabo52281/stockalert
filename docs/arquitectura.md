@@ -9,7 +9,7 @@ Navegador (React SPA)
 Vite proxy (dev)  o  Vercel rewrite (producción)
    │
    ▼
-API Express (/api)  ←  api/index.js en Vercel
+API Express (/api)  ←  servicio backend en Vercel Services
    │  Zod → permisos → servicios → repositorios
    ▼
 Neon PostgreSQL
@@ -60,7 +60,7 @@ Módulos: `auth`, `users`, `categories`, `suppliers`, `products`, `movements`, `
 El build separa React, Recharts e iconos en chunks propios. La SPA usa `/api` de forma relativa:
 
 - Desarrollo: Vite proxya `/api` y `/health` hacia `http://localhost:${PORT}` (4000 por defecto).
-- Producción en Vercel: el mismo dominio enruta `/api/*` a `api/index.js`; no hay URLs absolutas ni `VITE_API_URL`.
+- Producción en Vercel Services: el mismo dominio enruta `/api` y `/api/*` al servicio `backend` sin quitar el prefijo; no hay URLs absolutas ni `VITE_API_URL`.
 - Verificación local del artefacto: `npm run build && npm start` sirve API y SPA en un solo puerto.
 
 ### Convención de respuesta en el frontend
@@ -147,8 +147,9 @@ No hay proveedor externo, clave de API ni almacenamiento de datos fuera de Neon.
 ## 10. Arranque y despliegue
 
 - `npm run dev` valida el `.env` raíz, ejecuta migraciones pendientes, inicia API y Vite y abre el navegador.
-- `npm run build` compila la SPA; en Vercel (`VERCEL=1`) aplica primero las migraciones pendientes.
-- `api/index.js` exporta la app Express. `server.js` (que sí llama a `listen()`) solo se usa en desarrollo local y en `npm start`.
-- `vercel.json` reescribe `/api/(.*)` a la función Express y el resto a `/index.html` para que las recargas de React Router funcionen.
+- `npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate` o desde el build del servicio backend en Vercel.
+- `backend/api/index.js` exporta la app Express y es el entrypoint del servicio `backend`. `server.js` (que sí llama a `listen()`) solo se usa en desarrollo local y en `npm start`.
+- `vercel.json` define los servicios `backend` y `frontend`, enruta `/api`, `/api/*` y `/health` al backend, envía el resto al frontend y declara el fallback a `/index.html` dentro del servicio frontend para React Router.
+- Cada servicio instala y compila sus dependencias de forma independiente; npm detecta el workspace raíz del repositorio desde cada servicio. No hay service bindings: el navegador usa `/api` en el mismo dominio.
 
 Detalles de seguridad en [`seguridad.md`](seguridad.md) y de despliegue en [`instalacion.md`](instalacion.md).
