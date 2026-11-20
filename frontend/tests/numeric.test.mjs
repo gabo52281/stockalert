@@ -5,13 +5,16 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
   caretForDigitCount, digitsBeforeCaret, formatCurrencyDigits, isIntegerText,
-  normalizeDigits, parseCurrencyDigits,
+  normalizeDigits, parseCurrencyDigits, parseCurrencyEditing,
 } from '../src/utils/numeric.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
 test('los enteros rechazan decimales, signos, notación científica y permiten vacío', () => {
   assert.equal(normalizeDigits('001500'), '1500');
+  assert.equal(normalizeDigits('1250000.00'), '1250000');
+  assert.equal(normalizeDigits('10.000'), '10');
+  assert.equal(formatCurrencyDigits('1500000.00'), '$ 1.500.000');
   assert.equal(isIntegerText(''), false);
   assert.equal(isIntegerText('0'), true);
   assert.equal(isIntegerText('0', { allowZero: false }), false);
@@ -46,6 +49,19 @@ test('el analizador COP acepta pegado y edición, pero rechaza decimales y negat
   assert.equal(parseCurrencyDigits('1,5'), null);
   assert.equal(parseCurrencyDigits('-100'), null);
   assert.equal(parseCurrencyDigits('1e5'), null);
+});
+
+test('borrar en vivo no restaura el valor anterior ni acepta decimales', () => {
+  assert.equal(parseCurrencyEditing('', '1250000'), '');
+  assert.equal(parseCurrencyEditing('$ 1.250.00', '1250000'), '125000');
+  assert.equal(parseCurrencyEditing('$ 1.20.000', '1250000'), '120000');
+  assert.equal(parseCurrencyEditing('5', '1250000'), '5');
+  assert.equal(parseCurrencyEditing('$ 50.000', ''), '50000');
+  assert.equal(parseCurrencyEditing('$ 1.250.0005', '1250000'), '12500005');
+  assert.equal(parseCurrencyEditing('1500000.00', '1250000'), null);
+  assert.equal(parseCurrencyEditing('1,5', '1250000'), null);
+  assert.equal(parseCurrencyEditing('-5', '1250000'), null);
+  assert.equal(parseCurrencyEditing('1e5', '1250000'), null);
 });
 
 test('el cursor se conserva al insertar o borrar en medio', () => {

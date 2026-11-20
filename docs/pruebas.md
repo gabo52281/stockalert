@@ -28,7 +28,7 @@ Resultado real tras la corrección numérica y monetaria:
 ```text
 Test Files  6 passed (6)
 Tests       53 passed (53)
-Duration    4.94s
+Duration    3.30s
 ```
 
 Cobertura:
@@ -75,7 +75,7 @@ Durante la verificación final se corrigieron dos regresiones detectadas por lin
 
 Comando: `npm run build` en la raíz.
 
-Resultado real tras la corrección numérica: compilación correcta de 2107 módulos en 9,25 s.
+Resultado real tras la corrección numérica: compilación correcta de 2107 módulos en 8,20 s.
 
 ```text
 index.html                  1.11 kB │ gzip:   0.60 kB
@@ -136,15 +136,21 @@ Comando: `npm run test:numeric-e2e --workspace=frontend`, con `E2E_BASE_URL=http
 Salida real:
 
 ```text
-1. Precios COP editables, formateo en vivo, borrado y decimales rechazados
-2. La rueda del ratón desplaza la página sin modificar cantidades
-3. Cantidades enteras, sin decimales ni negativos
-4. Campos numéricos visibles y operativos en 390 px
+1. Ctrl+A + Backspace y Ctrl+A + Delete dejan el precio vacío
+2. Borrado dígito por dígito y escritura posterior: $ 50.000
+3. Reemplazo completo y borrado de dígitos intermedios sin restauración
+4. Pegado con/sin formato, rechazo de decimales y negativos
+5. Cantidades: borrado total, reemplazo y rechazo de decimales/negativos
+6. La rueda desplaza la página sin cambiar cantidades y el borrado funciona
+7. Producto creado con precios nuevos y valores guardados correctamente
+8. Edición de producto existente carga y conserva los valores COP
+9. Producto de prueba eliminado después de verificar la persistencia
+10. Diseño responsive conservado en 390 px
 
-E2E numérico: 4 comprobaciones superadas, sin errores de JavaScript.
+E2E numérico: 10 comprobaciones superadas, sin errores de JavaScript.
 ```
 
-Además, `npm run test:fields` ejecuta 5 pruebas puras de utilidades: enteros, formato COP en vivo, pegado con formato, cursor y ausencia de `type="number"` en los dos formularios corregidos.
+Además, `npm run test:fields` ejecuta 6 pruebas puras: enteros, normalización de decimales devueltos por PostgreSQL, formato COP en vivo, estados intermedios de borrado, pegado con formato, cursor y ausencia de `type="number"` en los formularios.
 
 ## 8. Configuración de Vercel Services verificada localmente
 
@@ -154,7 +160,7 @@ Además, `npm run test:fields` ejecuta 5 pruebas puras de utilidades: enteros, f
 - No hay `bindings`: el navegador llama a `/api` en el mismo dominio.
 - `backend/api/index.js` exporta la app Express; al importarla con `VERCEL=1` y variables de entorno de prueba no se llama a `listen()` y el proceso termina.
 - Validación en checkout limpio: `npm install --dry-run` desde `backend/` resolvería 331 paquetes y desde `frontend/` 320, usando el workspace raíz del repositorio.
-- `npm run build --workspace=frontend` compila la SPA correctamente (2107 módulos, 9,25 s en la última pasada).
+- `npm run build --workspace=frontend` compila la SPA correctamente (2107 módulos, 8,20 s en la última pasada).
 - En `app.js`, el sirvido estático de `frontend/dist` se desactiva cuando `VERCEL` está definido, porque la plataforma sirve los archivos.
 - El bundle de frontend usa `baseURL: '/api'`; no aparece `VITE_API_URL` ni secretos en el código compilado.
 
@@ -174,6 +180,13 @@ La inversión estimada para cubrir la demanda de 14 días es 236200.
 - Backend: `productCreateSchema`, `productUpdateSchema`, esquemas de movimiento y configuración de alertas validan enteros estrictos. Los porcentajes y días también son enteros dentro de rango.
 - Reportes: la vista previa usa `formatCurrency`; CSV y PDF usan el mismo formateador COP del backend, sin decimales.
 - No se modificaron migraciones ni columnas de base de datos; la validación reforzada está en la capa API.
+
+### Corrección definitiva del borrado
+
+- Causa 1: el analizador estricto de COP rechazaba estados intermedios como `$ 1.250.00` o `$ 1.20.000`; el componente no propagaba el cambio y React restauraba el valor controlado.
+- Causa 2: `normalizeDigits` eliminaba el punto de los valores `numeric` de PostgreSQL (`1250000.00` → `125000000`), de modo que reabrir un producto mostraba el precio multiplicado.
+- Solución: `parseCurrencyEditing` acepta estados intermedios de borrado sin devolver nunca el valor anterior; `digitsOnly` conserva únicamente la parte entera de los decimales devueltos por la base; ambos componentes validan rangos en `blur`/submit con `setCustomValidity` y `required`, sin bloquear la escritura.
+- El formulario del padre sigue recibiendo solo cadenas de dígitos o `''`; `apiNumber` convierte a número para la API y nunca sustituye el vacío por cero.
 
 ## 10. Limitaciones
 

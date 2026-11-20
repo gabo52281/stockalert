@@ -93,18 +93,20 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 | --- | --- |
 | `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas |
 | `npm run lint` | backend y frontend sin errores ni advertencias |
-| `npm test` con base de datos de verificación | 6 archivos, 53/53 pruebas, 4,94 s |
+| `npm test` con base de datos de verificación | 6 archivos, 53/53 pruebas, 3,30 s |
 | `npm run test:unit` sin base de datos | 3 archivos, 29/29 pruebas puras |
-| `npm run test:fields` | 5/5 pruebas de enteros, COP, cursor y ausencia de `type="number"` |
-| `npm run build` | correcto, 2107 módulos, chunks de React/Recharts/iconos separados |
+| `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` |
+| `npm run build` | correcto, 2107 módulos, 8,20 s, chunks de React/Recharts/iconos separados |
 | `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
 | E2E en desarrollo | 10/10 comprobaciones, sin errores de consola |
-| E2E numérico en navegador | 4/4 comprobaciones: scroll, decimales/negativos, COP en vivo y móvil |
+| E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
-| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 9,25 s |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 8,20 s |
 
 La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos.
+
+La corrección del borrado añadió `parseCurrencyEditing` para aceptar estados intermedios sin restaurar el valor anterior, movió la validación de rango a `blur`/submit y corrigió `digitsOnly` para conservar solo la parte entera de los valores `numeric` de PostgreSQL (`1250000.00` → `1250000`). Los productos creados en el E2E numérico se eliminaron al finalizar.
 
 La verificación original con base de datos usó el PostgreSQL de prueba ya existente en `127.0.0.1:55432` como fixture temporal. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron.
 

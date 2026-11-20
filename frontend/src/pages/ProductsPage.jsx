@@ -243,16 +243,16 @@ export default function ProductsPage() {
             </Select>
           </Field>
           <Field label="Precio de compra (COP)">
-            <CurrencyInput value={form.purchasePrice} onChange={(value) => setForm({ ...form, purchasePrice: value })} />
+            <CurrencyInput required value={form.purchasePrice} onChange={(value) => setForm({ ...form, purchasePrice: value })} />
           </Field>
           <Field label="Precio de venta (COP)">
-            <CurrencyInput value={form.salePrice} onChange={(value) => setForm({ ...form, salePrice: value })} />
+            <CurrencyInput required value={form.salePrice} onChange={(value) => setForm({ ...form, salePrice: value })} />
           </Field>
           <Field label="Stock mínimo" hint="Al llegar a este valor se clasifica como CRÍTICO">
-            <IntegerInput min={0} value={form.minStock} onChange={(value) => setForm({ ...form, minStock: value })} />
+            <IntegerInput required min={0} value={form.minStock} onChange={(value) => setForm({ ...form, minStock: value })} />
           </Field>
           <Field label="Porcentaje preventivo (%)" hint="Global: 25 % · define el estado BAJO">
-            <IntegerInput min={0} max={100} value={form.alertPercentage} onChange={(value) => setForm({ ...form, alertPercentage: value })} />
+            <IntegerInput required min={0} max={100} value={form.alertPercentage} onChange={(value) => setForm({ ...form, alertPercentage: value })} />
           </Field>
           <Field label="Descripción" className="field--full">
             <Textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Detalles adicionales" />
