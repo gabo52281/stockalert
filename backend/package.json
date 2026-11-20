@@ -1,0 +1,41 @@
+{
+  "name": "stockalert-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de STOCKALERT",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "test": "vitest run --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",
+    "test:unit": "vitest run tests/ai.test.js tests/neon.test.js --reporter=verbose",
+    "test:integration": "vitest run tests/api.test.js tests/alerts.test.js tests/metrics.test.js --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",
+    "lint": "eslint src tests",
+    "migrate": "node src/scripts/migrate.js up",
+    "seed": "node src/scripts/seed.js",
+    "admin": "node src/scripts/createAdmin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pdfkit": "^0.15.2",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
