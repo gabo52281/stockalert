@@ -14,6 +14,7 @@
     "test:unit": "npm run test:unit --workspace=backend",
     "test:fields": "npm run test:fields --workspace=frontend",
     "test:numeric-e2e": "npm run test:numeric-e2e --workspace=frontend",
+    "test:movements-e2e": "npm run test:movements-e2e --workspace=frontend",
     "test:integration": "npm run test:integration --workspace=backend",
     "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend",
     "start": "node backend/src/server.js",

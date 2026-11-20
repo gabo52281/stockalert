@@ -28,7 +28,7 @@ Resultado real tras la corrección numérica y monetaria:
 ```text
 Test Files  6 passed (6)
 Tests       53 passed (53)
-Duration    3.30s
+Duration    2.98s
 ```
 
 Cobertura:
@@ -75,7 +75,7 @@ Durante la verificación final se corrigieron dos regresiones detectadas por lin
 
 Comando: `npm run build` en la raíz.
 
-Resultado real tras la corrección numérica: compilación correcta de 2107 módulos en 8,20 s.
+Resultado real tras la corrección numérica: compilación correcta de 2107 módulos en 7,76 s.
 
 ```text
 index.html                  1.11 kB │ gzip:   0.60 kB
@@ -152,6 +152,29 @@ E2E numérico: 10 comprobaciones superadas, sin errores de JavaScript.
 
 Además, `npm run test:fields` ejecuta 6 pruebas puras: enteros, normalización de decimales devueltos por PostgreSQL, formato COP en vivo, estados intermedios de borrado, pegado con formato, cursor y ausencia de `type="number"` en los formularios.
 
+### E2E específico de pestañas de movimientos
+
+Comando: `npm run test:movements-e2e`, con `E2E_BASE_URL=http://localhost:5180` contra un servidor de desarrollo apoyado en el fixture local.
+
+Salida real:
+
+```text
+1. Registrar entrada muestra únicamente Nueva entrada
+2. Registrar salida muestra únicamente Nueva salida
+3. Historial muestra únicamente filtros, tabla y paginación
+4. Entrada → Salida → Entrada funciona sin estados residuales
+5. Productos seleccionables y cantidades editables/borrables
+6. Entrada registrada: stock aumentado y alertas actualizadas
+7. La entrada aparece en el historial
+8. Salida registrada: stock descontado y alertas actualizadas
+9. La salida aparece en el historial
+10. Diseño responsive conservado y sin errores de JavaScript
+
+E2E de pestañas: 10 comprobaciones superadas.
+```
+
+La causa era que el componente `Nueva salida` estaba incluido dentro de la condición `tab === 'in'` y no existía una rama `tab === 'out'`. Ahora las tres pestañas usan renderizado condicional de React: `in`, `out` e `history`. El indicador azul depende de la misma variable de estado `tab`.
+
 ## 8. Configuración de Vercel Services verificada localmente
 
 - `vercel.json` es JSON válido y usa el formato `services` con `backend` y `frontend`, sin comandos globales de build.
@@ -160,7 +183,7 @@ Además, `npm run test:fields` ejecuta 6 pruebas puras: enteros, normalización 
 - No hay `bindings`: el navegador llama a `/api` en el mismo dominio.
 - `backend/api/index.js` exporta la app Express; al importarla con `VERCEL=1` y variables de entorno de prueba no se llama a `listen()` y el proceso termina.
 - Validación en checkout limpio: `npm install --dry-run` desde `backend/` resolvería 331 paquetes y desde `frontend/` 320, usando el workspace raíz del repositorio.
-- `npm run build --workspace=frontend` compila la SPA correctamente (2107 módulos, 8,20 s en la última pasada).
+- `npm run build --workspace=frontend` compila la SPA correctamente (2107 módulos, 7,76 s en la última pasada).
 - En `app.js`, el sirvido estático de `frontend/dist` se desactiva cuando `VERCEL` está definido, porque la plataforma sirve los archivos.
 - El bundle de frontend usa `baseURL: '/api'`; no aparece `VITE_API_URL` ni secretos en el código compilado.
 

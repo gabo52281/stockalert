@@ -96,7 +96,7 @@ export default function MovementsPage() {
       </div>
 
       {tab === 'in' && (
-        <div className="grid-2">
+        <div className="movement-form">
           <Card>
             <CardHeader title="Nueva entrada" subtitle="Aumenta las existencias de un producto" />
             <CardBody>
@@ -129,7 +129,11 @@ export default function MovementsPage() {
               </form>
             </CardBody>
           </Card>
+        </div>
+      )}
 
+      {tab === 'out' && (
+        <div className="movement-form">
           <Card>
             <CardHeader title="Nueva salida" subtitle="Descuenta existencias y exige un motivo" />
             <CardBody>
