@@ -4,8 +4,29 @@ const { z } = require('zod');
 
 const id = () => z.coerce.number().int().positive();
 const optionalId = () => id().nullable().optional();
-const amount = () => z.coerce.number().finite().min(0);
 const date = () => z.coerce.date();
+
+/**
+ * Enteros estrictos para unidades físicas y valores monetarios COP.
+ * Las cadenas deben contener solo dígitos: se rechazan decimales, signos,
+ * notación científica y espacios. Los números deben ser enteros reales.
+ */
+const integerFrom = (minimum, maximum) => z.preprocess(
+  (value) => {
+    if (typeof value === 'string') {
+      const text = value.trim();
+      return /^\d+$/.test(text) ? Number(text) : Number.NaN;
+    }
+    return value;
+  },
+  z.number().int().min(minimum).max(maximum ?? Number.MAX_SAFE_INTEGER),
+);
+
+const units = () => integerFrom(0);
+const positiveUnits = () => integerFrom(1);
+const money = () => integerFrom(0);
+const percentage = () => integerFrom(0, 100);
+const analysisDays = () => integerFrom(1, 365);
 
 const pagination = {
   page: z.coerce.number().int().positive().default(1),
@@ -107,10 +128,10 @@ const productBody = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   categoryId: optionalId(),
   supplierId: optionalId(),
-  purchasePrice: amount().default(0),
-  salePrice: amount().default(0),
-  minStock: amount().default(0),
-  alertPercentage: z.coerce.number().finite().min(0).max(100).default(25),
+  purchasePrice: money().default(0),
+  salePrice: money().default(0),
+  minStock: units().default(0),
+  alertPercentage: percentage().default(25),
   active: z.boolean().default(true),
 });
 
@@ -139,9 +160,9 @@ const productIdSchema = z.object({ params: z.object({ id: id() }) });
 const alertSettingsSchema = z.object({
   params: z.object({ id: id() }),
   body: z.object({
-    preventivePercentage: z.coerce.number().finite().min(0).max(100),
-    analysisWindowDays: z.coerce.number().int().min(1).max(365).default(30),
-    minHistoryDays: z.coerce.number().int().min(1).max(365).default(7),
+    preventivePercentage: percentage(),
+    analysisWindowDays: analysisDays().default(30),
+    minHistoryDays: analysisDays().default(7),
   }),
 });
 
@@ -151,7 +172,7 @@ const alertSettingsSchema = z.object({
 const movementInSchema = z.object({
   body: z.object({
     productId: id(),
-    quantity: z.coerce.number().finite().positive(),
+    quantity: positiveUnits(),
     supplierId: optionalId(),
     notes: z.string().trim().max(1000).nullable().optional(),
     movementDate: date().optional(),
@@ -161,7 +182,7 @@ const movementInSchema = z.object({
 const movementOutSchema = z.object({
   body: z.object({
     productId: id(),
-    quantity: z.coerce.number().finite().positive(),
+    quantity: positiveUnits(),
     reason: z.string().trim().min(1).max(180),
     notes: z.string().trim().max(1000).nullable().optional(),
     movementDate: date().optional(),

@@ -2,6 +2,7 @@
 
 const repository = require('../repositories/analytics.repository');
 const { buildPdf } = require('./pdf.service');
+const { formatReportValue } = require('../utils/format');
 
 const CATALOG = [
   { name: 'inventory', label: 'Inventario actual' },
@@ -38,7 +39,8 @@ function buildCsv(report) {
     `# Generado: ${new Date().toISOString()}`,
     `# Filtros: ${filters || 'ninguno'}`,
     report.columns.map((column) => csvValue(column.label)).join(','),
-    ...report.rows.map((row) => report.columns.map((column) => csvValue(row[column.key])).join(',')),
+    ...report.rows.map((row) => report.columns
+      .map((column) => csvValue(formatReportValue(row[column.key], column))).join(',')),
   ];
   return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

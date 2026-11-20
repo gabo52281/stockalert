@@ -6,7 +6,7 @@ import {
 import { errorMessage } from '../api/client.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useApi } from '../hooks/useApi.js';
-import { daysAgoISO, formatNumber, todayISO } from '../utils/format.js';
+import { daysAgoISO, formatCurrency, formatNumber, todayISO } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -74,7 +74,7 @@ export default function ReportsPage() {
       const value = row[column.key];
       if (value === null || value === undefined || value === '') return '—';
       if (typeof value === 'number' && /fecha/i.test(column.label)) return formatNumber(value);
-      if (typeof value === 'number' && /precio|valor/i.test(column.label)) return `$${formatNumber(value)}`;
+      if (column.format === 'currency' || /precio|valor/i.test(column.label)) return formatCurrency(value);
       if (typeof value === 'number') return formatNumber(value);
       if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return new Date(value).toLocaleString('es-CO');
       return value;

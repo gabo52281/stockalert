@@ -9,7 +9,7 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "test": "vitest run --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",
-    "test:unit": "vitest run tests/ai.test.js tests/neon.test.js --reporter=verbose",
+    "test:unit": "vitest run tests/ai.test.js tests/validation.test.js tests/neon.test.js --reporter=verbose",
     "test:integration": "vitest run tests/api.test.js tests/alerts.test.js tests/metrics.test.js --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",
     "lint": "eslint src tests",
     "migrate": "node src/scripts/migrate.js up",

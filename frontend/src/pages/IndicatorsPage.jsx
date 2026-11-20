@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Activity, CalendarClock, ChartNoAxesCombined, Coins, Package } from 'lucide-react';
 import { indicatorsApi } from '../api/endpoints.js';
 import { useApi } from '../hooks/useApi.js';
-import { formatCurrency, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatInteger, formatNumber } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Table from '../components/ui/Table.jsx';
@@ -20,7 +20,7 @@ export default function IndicatorsPage() {
   const coverageColumns = [
     { key: 'code', label: 'Código' },
     { key: 'name', label: 'Producto', render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.category_name || 'Sin categoría'}</small></> },
-    { key: 'quantity', label: 'Stock', align: 'right', render: (row) => formatNumber(row.quantity) },
+    { key: 'quantity', label: 'Stock', align: 'right', render: (row) => formatInteger(row.quantity) },
     { key: 'avg_daily_out', label: 'Salida diaria', align: 'right', render: (row) => formatNumber(row.avg_daily_out) },
     { key: 'coverage_status', label: 'Dato', render: (row) => <StatusPill value={row.coverage_status} /> },
     { key: 'coverage_days', label: 'Cobertura', align: 'right', render: (row) => row.coverage_days === null ? '—' : `${formatNumber(row.coverage_days)} días` },
@@ -42,8 +42,8 @@ export default function IndicatorsPage() {
       />
 
       <div className="stats-grid">
-        <Card className="stat-card stat-card--blue"><div className="stat-card__icon"><Package size={21} /></div><div><span>Referencias activas</span><strong>{formatNumber(summary?.active_products || 0)}</strong></div></Card>
-        <Card className="stat-card stat-card--cyan"><div className="stat-card__icon"><Activity size={21} /></div><div><span>Unidades disponibles</span><strong>{formatNumber(summary?.total_units || 0)}</strong></div></Card>
+        <Card className="stat-card stat-card--blue"><div className="stat-card__icon"><Package size={21} /></div><div><span>Referencias activas</span><strong>{formatInteger(summary?.active_products || 0)}</strong></div></Card>
+        <Card className="stat-card stat-card--cyan"><div className="stat-card__icon"><Activity size={21} /></div><div><span>Unidades disponibles</span><strong>{formatInteger(summary?.total_units || 0)}</strong></div></Card>
         <Card className="stat-card stat-card--green"><div className="stat-card__icon"><Coins size={21} /></div><div><span>Valor inventario</span><strong>{formatCurrency(summary?.inventory_value || 0)}</strong></div></Card>
         <Card className="stat-card stat-card--orange"><div className="stat-card__icon"><CalendarClock size={21} /></div><div><span>Cobertura global</span><strong>{summary && summary.coverage_days !== null ? `${formatNumber(summary.coverage_days)} días` : 'Sin datos suficientes'}</strong></div></Card>
       </div>
@@ -75,7 +75,7 @@ export default function IndicatorsPage() {
                   <div key={product.id} className="ranking__row">
                     <span className="ranking__index">{index + 1}</span>
                     <div className="ranking__bar">
-                      <div className="ranking__label"><strong>{product.name}</strong><span>{formatNumber(product.total_out)} uds.</span></div>
+                      <div className="ranking__label"><strong>{product.name}</strong><span>{formatInteger(product.total_out)} uds.</span></div>
                       <div className="progress"><div className="progress__fill" style={{ width: `${Math.min(100, (Number(product.total_out) / Number(top[0].total_out || 1)) * 100)}%` }} /></div>
                     </div>
                   </div>

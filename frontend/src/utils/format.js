@@ -1,11 +1,16 @@
 const currency = new Intl.NumberFormat('es-CO', {
-  style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+  style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0,
 });
 
 const number = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 
-export const formatCurrency = (value) => currency.format(Number(value || 0));
+const integer = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+
+const normalizeSpaces = (text) => text.replace(/\u00a0/g, ' ');
+
+export const formatCurrency = (value) => normalizeSpaces(currency.format(Number(value || 0)));
 export const formatNumber = (value) => number.format(Number(value || 0));
+export const formatInteger = (value) => integer.format(Number(value || 0));
 
 export function formatDate(value, withTime = false) {
   if (!value) return '—';

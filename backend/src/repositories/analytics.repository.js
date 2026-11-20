@@ -154,8 +154,8 @@ const COLUMNS = {
     { key: 'code', label: 'Código' }, { key: 'name', label: 'Producto' },
     { key: 'category_name', label: 'Categoría' }, { key: 'supplier_name', label: 'Proveedor' },
     { key: 'quantity', label: 'Existencia' }, { key: 'min_stock', label: 'Mínimo' },
-    { key: 'alert_level', label: 'Estado' }, { key: 'purchase_price', label: 'Precio compra' },
-    { key: 'sale_price', label: 'Precio venta' }, { key: 'inventory_value', label: 'Valorizado' },
+    { key: 'alert_level', label: 'Estado' }, { key: 'purchase_price', label: 'Precio compra', format: 'currency' },
+    { key: 'sale_price', label: 'Precio venta', format: 'currency' }, { key: 'inventory_value', label: 'Valorizado', format: 'currency' },
   ],
   'low-stock': [
     { key: 'code', label: 'Código' }, { key: 'name', label: 'Producto' },
@@ -176,9 +176,9 @@ const COLUMNS = {
   ],
   valuation: [
     { key: 'code', label: 'Código' }, { key: 'name', label: 'Producto' },
-    { key: 'quantity', label: 'Existencia' }, { key: 'purchase_price', label: 'Precio compra' },
-    { key: 'inventory_value', label: 'Valor compra' }, { key: 'sale_price', label: 'Precio venta' },
-    { key: 'inventory_sale_value', label: 'Valor venta' },
+    { key: 'quantity', label: 'Existencia' }, { key: 'purchase_price', label: 'Precio compra', format: 'currency' },
+    { key: 'inventory_value', label: 'Valor compra', format: 'currency' }, { key: 'sale_price', label: 'Precio venta', format: 'currency' },
+    { key: 'inventory_sale_value', label: 'Valor venta', format: 'currency' },
   ],
   'top-products': [
     { key: 'code', label: 'Código' }, { key: 'name', label: 'Producto' },

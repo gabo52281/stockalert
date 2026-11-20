@@ -93,14 +93,18 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 | --- | --- |
 | `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas |
 | `npm run lint` | backend y frontend sin errores ni advertencias |
-| `npm test` con base de datos de verificación | 5 archivos, 34/34 pruebas, 7,53 s |
-| `npm test` sin base de datos | 2 archivos OK, 3 omitidos; 10/10 pruebas puras, 24 omitidas, 1,23 s |
-| `npm run build` | correcto, 2104 módulos, chunks de React/Recharts/iconos separados |
+| `npm test` con base de datos de verificación | 6 archivos, 53/53 pruebas, 4,94 s |
+| `npm run test:unit` sin base de datos | 3 archivos, 29/29 pruebas puras |
+| `npm run test:fields` | 5/5 pruebas de enteros, COP, cursor y ausencia de `type="number"` |
+| `npm run build` | correcto, 2107 módulos, chunks de React/Recharts/iconos separados |
 | `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
 | E2E en desarrollo | 10/10 comprobaciones, sin errores de consola |
+| E2E numérico en navegador | 4/4 comprobaciones: scroll, decimales/negativos, COP en vivo y móvil |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
-| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2097 módulos, 6,00 s |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 9,25 s |
+
+La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos.
 
 La verificación original con base de datos usó el PostgreSQL de prueba ya existente en `127.0.0.1:55432` como fixture temporal. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron.
 
@@ -114,4 +118,4 @@ Posteriormente el usuario configuró un `.env` apuntando a Neon. No se ejecutaro
 
 ## Estado final
 
-La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Además incluye el Asistente IA local. El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET`, ejecutar `npm install` y `npm run dev`, y desplegar un único repositorio en Vercel con las variables de entorno del proyecto.
+La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Además incluye el Asistente IA local y los campos numéricos/monetarios estandarizados con componentes reutilizables y validación backend estricta. El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET`, ejecutar `npm install` y `npm run dev`, y desplegar un único repositorio en Vercel con las variables de entorno del proyecto.

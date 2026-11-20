@@ -1,22 +1,15 @@
 'use strict';
 
 const PDFDocument = require('pdfkit');
+const { formatReportValue } = require('../utils/format');
 
 const BLUE = '#12304F';
 const LIGHT = '#EEF3F8';
 const GRAY = '#5A6B7B';
 
-function formatValue(value) {
+function formatValue(value, column) {
   if (value === null || value === undefined) return '—';
-  if (value instanceof Date) {
-    return new Intl.DateTimeFormat('es-CO', {
-      dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Bogota',
-    }).format(value);
-  }
-  if (typeof value === 'number') {
-    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value);
-  }
-  return String(value);
+  return formatReportValue(value, column);
 }
 
 function buildPdf(report) {
@@ -83,7 +76,7 @@ function buildPdf(report) {
         doc.fillColor('#000000');
       }
       columns.forEach((column, index) => {
-        doc.text(formatValue(row[column.key]), x + 3, y + 4, {
+        doc.text(formatValue(row[column.key], column), x + 3, y + 4, {
           width: widths[index] - 6, height: 14, ellipsis: true,
         });
         x += widths[index];

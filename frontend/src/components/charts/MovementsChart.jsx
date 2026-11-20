@@ -1,7 +1,7 @@
 import {
   Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { formatDate, formatNumber } from '../../utils/format.js';
+import { formatDate, formatInteger } from '../../utils/format.js';
 
 export default function MovementsChart({ data = [] }) {
   if (!data.length) {
@@ -21,7 +21,7 @@ export default function MovementsChart({ data = [] }) {
           />
           <YAxis tick={{ fontSize: 11, fill: '#7A8A99' }} allowDecimals={false} />
           <Tooltip
-            formatter={(value, name) => [formatNumber(value), name === 'inputs' ? 'Entradas' : 'Salidas']}
+            formatter={(value, name) => [formatInteger(value), name === 'inputs' ? 'Entradas' : 'Salidas']}
             labelFormatter={(value) => formatDate(value)}
             contentStyle={{ borderRadius: 10, border: '1px solid #E3EAF1', fontSize: 12 }}
           />

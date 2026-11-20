@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { formatCurrency, formatDateTime, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatDateTime, formatInteger } from '../utils/format.js';
+import { normalizeDigits } from '../utils/numeric.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -18,14 +19,17 @@ import Modal from '../components/ui/Modal.jsx';
 import ConfirmDialog from '../components/ui/ConfirmDialog.jsx';
 import StatusPill from '../components/ui/StatusPill.jsx';
 import Badge from '../components/ui/Badge.jsx';
-import { Field, Input, Select, Textarea } from '../components/ui/Field.jsx';
+import {
+  CurrencyInput, Field, Input, IntegerInput, Select, Textarea,
+} from '../components/ui/Field.jsx';
 
 const EMPTY_FORM = {
   code: '', name: '', description: '', categoryId: '', supplierId: '',
-  purchasePrice: 0, salePrice: 0, minStock: 0, alertPercentage: 25, active: true,
+  purchasePrice: '0', salePrice: '0', minStock: '0', alertPercentage: '25', active: true,
 };
 
 const nullableNumber = (value) => (value === '' || value === null || value === undefined ? null : Number(value));
+const apiNumber = (value) => (value === '' || value === null || value === undefined ? '' : Number(value));
 
 export default function ProductsPage() {
   const { hasPermission } = useAuth();
@@ -56,7 +60,7 @@ export default function ProductsPage() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState({ preventivePercentage: 25, analysisWindowDays: 30, minHistoryDays: 7 });
+  const [settings, setSettings] = useState({ preventivePercentage: '25', analysisWindowDays: '30', minHistoryDays: '7' });
   const [confirm, setConfirm] = useState(null);
 
   useEffect(() => { setFilters((current) => ({ ...current, page: 1 })); }, [debouncedSearch, filters.categoryId, filters.status, filters.alertLevel]);
@@ -67,8 +71,11 @@ export default function ProductsPage() {
     setForm({
       code: product.code, name: product.name, description: product.description || '',
       categoryId: product.category_id || '', supplierId: product.supplier_id || '',
-      purchasePrice: product.purchase_price, salePrice: product.sale_price,
-      minStock: product.min_stock, alertPercentage: product.alert_percentage, active: product.active,
+      purchasePrice: normalizeDigits(product.purchase_price),
+      salePrice: normalizeDigits(product.sale_price),
+      minStock: normalizeDigits(product.min_stock),
+      alertPercentage: normalizeDigits(product.alert_percentage),
+      active: product.active,
     });
     setFormOpen(true);
   };
@@ -80,8 +87,8 @@ export default function ProductsPage() {
       ...form,
       code: form.code.trim(), name: form.name.trim(),
       categoryId: nullableNumber(form.categoryId), supplierId: nullableNumber(form.supplierId),
-      purchasePrice: Number(form.purchasePrice), salePrice: Number(form.salePrice),
-      minStock: Number(form.minStock), alertPercentage: Number(form.alertPercentage),
+      purchasePrice: apiNumber(form.purchasePrice), salePrice: apiNumber(form.salePrice),
+      minStock: apiNumber(form.minStock), alertPercentage: apiNumber(form.alertPercentage),
     };
     try {
       if (editing) {
@@ -115,9 +122,9 @@ export default function ProductsPage() {
   const openSettings = (product) => {
     setEditing(product);
     setSettings({
-      preventivePercentage: product.effective_percentage,
-      analysisWindowDays: product.effective_window_days,
-      minHistoryDays: 7,
+      preventivePercentage: normalizeDigits(product.effective_percentage),
+      analysisWindowDays: normalizeDigits(product.effective_window_days),
+      minHistoryDays: '7',
     });
     setSettingsOpen(true);
   };
@@ -126,9 +133,9 @@ export default function ProductsPage() {
     event.preventDefault();
     try {
       await productsApi.setAlertSettings(editing.id, {
-        preventivePercentage: Number(settings.preventivePercentage),
-        analysisWindowDays: Number(settings.analysisWindowDays),
-        minHistoryDays: Number(settings.minHistoryDays),
+        preventivePercentage: apiNumber(settings.preventivePercentage),
+        analysisWindowDays: apiNumber(settings.analysisWindowDays),
+        minHistoryDays: apiNumber(settings.minHistoryDays),
       });
       success('Configuración de alertas actualizada');
       setSettingsOpen(false);
@@ -151,8 +158,8 @@ export default function ProductsPage() {
   const columns = [
     { key: 'code', label: 'Código', render: (row) => <strong className="mono">{row.code}</strong> },
     { key: 'name', label: 'Producto', render: (row) => (<><strong>{row.name}</strong><small className="cell-sub">{row.category_name || 'Sin categoría'}</small></>) },
-    { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => <strong>{formatNumber(row.quantity)}</strong> },
-    { key: 'min_stock', label: 'Mínimo', align: 'right', render: (row) => formatNumber(row.min_stock) },
+    { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => <strong>{formatInteger(row.quantity)}</strong> },
+    { key: 'min_stock', label: 'Mínimo', align: 'right', render: (row) => formatInteger(row.min_stock) },
     { key: 'alert_level', label: 'Estado', render: (row) => <StatusPill value={row.alert_level} /> },
     { key: 'sale_price', label: 'Precio venta', align: 'right', render: (row) => formatCurrency(row.sale_price) },
     {
@@ -236,16 +243,16 @@ export default function ProductsPage() {
             </Select>
           </Field>
           <Field label="Precio de compra (COP)">
-            <Input type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(event) => setForm({ ...form, purchasePrice: event.target.value })} />
+            <CurrencyInput value={form.purchasePrice} onChange={(value) => setForm({ ...form, purchasePrice: value })} />
           </Field>
           <Field label="Precio de venta (COP)">
-            <Input type="number" min="0" step="0.01" value={form.salePrice} onChange={(event) => setForm({ ...form, salePrice: event.target.value })} />
+            <CurrencyInput value={form.salePrice} onChange={(value) => setForm({ ...form, salePrice: value })} />
           </Field>
           <Field label="Stock mínimo" hint="Al llegar a este valor se clasifica como CRÍTICO">
-            <Input type="number" min="0" step="0.001" value={form.minStock} onChange={(event) => setForm({ ...form, minStock: event.target.value })} />
+            <IntegerInput min={0} value={form.minStock} onChange={(value) => setForm({ ...form, minStock: value })} />
           </Field>
           <Field label="Porcentaje preventivo (%)" hint="Global: 25 % · define el estado BAJO">
-            <Input type="number" min="0" max="100" step="1" value={form.alertPercentage} onChange={(event) => setForm({ ...form, alertPercentage: event.target.value })} />
+            <IntegerInput min={0} max={100} value={form.alertPercentage} onChange={(value) => setForm({ ...form, alertPercentage: value })} />
           </Field>
           <Field label="Descripción" className="field--full">
             <Textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Detalles adicionales" />
@@ -262,16 +269,16 @@ export default function ProductsPage() {
         footer={<><Button variant="ghost" onClick={() => setSettingsOpen(false)}>Cancelar</Button><Button type="submit" form="settings-form">Guardar</Button></>}>
         <form id="settings-form" onSubmit={saveSettings} className="form-stack">
           <Field label="Porcentaje preventivo (%)" hint="Umbral BAJO = mínimo × (1 + porcentaje/100)">
-            <Input type="number" min="0" max="100" step="1" required value={settings.preventivePercentage}
-              onChange={(event) => setSettings({ ...settings, preventivePercentage: event.target.value })} />
+            <IntegerInput min={0} max={100} required value={settings.preventivePercentage}
+              onChange={(value) => setSettings({ ...settings, preventivePercentage: value })} />
           </Field>
           <Field label="Ventana de análisis (días)" hint="Período para calcular promedio de salidas">
-            <Input type="number" min="1" max="365" required value={settings.analysisWindowDays}
-              onChange={(event) => setSettings({ ...settings, analysisWindowDays: event.target.value })} />
+            <IntegerInput min={1} max={365} required value={settings.analysisWindowDays}
+              onChange={(value) => setSettings({ ...settings, analysisWindowDays: value })} />
           </Field>
           <Field label="Días mínimos de historial" hint="Para considerar la cobertura como calculable">
-            <Input type="number" min="1" max="365" required value={settings.minHistoryDays}
-              onChange={(event) => setSettings({ ...settings, minHistoryDays: event.target.value })} />
+            <IntegerInput min={1} max={365} required value={settings.minHistoryDays}
+              onChange={(value) => setSettings({ ...settings, minHistoryDays: value })} />
           </Field>
           <div className="info-box">
             <Badge tone="info">Regla configurada</Badge>
@@ -285,9 +292,9 @@ export default function ProductsPage() {
           columns={[
             { key: 'movement_date', label: 'Fecha', render: (row) => formatDateTime(row.movement_date) },
             { key: 'type', label: 'Tipo', render: (row) => <StatusPill value={row.type} /> },
-            { key: 'quantity', label: 'Cantidad', align: 'right', render: (row) => formatNumber(row.quantity) },
-            { key: 'stock_before', label: 'Stock anterior', align: 'right', render: (row) => formatNumber(row.stock_before) },
-            { key: 'stock_after', label: 'Stock resultante', align: 'right', render: (row) => formatNumber(row.stock_after) },
+            { key: 'quantity', label: 'Cantidad', align: 'right', render: (row) => formatInteger(row.quantity) },
+            { key: 'stock_before', label: 'Stock anterior', align: 'right', render: (row) => formatInteger(row.stock_before) },
+            { key: 'stock_after', label: 'Stock resultante', align: 'right', render: (row) => formatInteger(row.stock_after) },
             { key: 'user_name', label: 'Responsable' },
             { key: 'reason', label: 'Motivo' },
           ]}

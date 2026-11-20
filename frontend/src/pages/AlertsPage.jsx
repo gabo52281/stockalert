@@ -5,7 +5,7 @@ import { errorMessage } from '../api/client.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { formatDateTime, formatNumber } from '../utils/format.js';
+import { formatDateTime, formatInteger, formatNumber } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody } from '../components/ui/Card.jsx';
 import Table from '../components/ui/Table.jsx';
@@ -54,8 +54,8 @@ export default function AlertsPage() {
   const columns = [
     { key: 'code', label: 'Código', render: (row) => <strong className="mono">{row.code}</strong> },
     { key: 'name', label: 'Producto', render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.category_name || 'Sin categoría'}</small></> },
-    { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => <strong>{formatNumber(row.quantity)}</strong> },
-    { key: 'min_stock', label: 'Mínimo', align: 'right', render: (row) => formatNumber(row.min_stock) },
+    { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => <strong>{formatInteger(row.quantity)}</strong> },
+    { key: 'min_stock', label: 'Mínimo', align: 'right', render: (row) => formatInteger(row.min_stock) },
     { key: 'preventive_threshold', label: 'Umbral BAJO', align: 'right', render: (row) => formatNumber(row.preventive_threshold) },
     { key: 'coverage_days', label: 'Cobertura', align: 'right', render: (row) => row.coverage_days === null ? '—' : `${formatNumber(row.coverage_days)} días` },
     { key: 'alert_level', label: 'Nivel', render: (row) => <StatusPill value={row.alert_level} /> },
@@ -66,10 +66,10 @@ export default function AlertsPage() {
       <PageHeader title="Alertas preventivas" description="Clasificación determinista basada en existencias, mínimos y porcentaje preventivo." />
 
       <div className="summary-grid">
-        <SummaryCard icon={PackageX} label="Agotados" value={summary?.out_of_stock ?? '—'} tone="out" />
-        <SummaryCard icon={TriangleAlert} label="Críticos" value={summary?.critical ?? '—'} tone="critical" />
-        <SummaryCard icon={CircleAlert} label="Stock bajo" value={summary?.low ?? '—'} tone="low" />
-        <SummaryCard icon={BellRing} label="En atención" value={summary?.attention ?? '—'} tone="blue" />
+        <SummaryCard icon={PackageX} label="Agotados" value={summary ? formatInteger(summary.out_of_stock) : '—'} tone="out" />
+        <SummaryCard icon={TriangleAlert} label="Críticos" value={summary ? formatInteger(summary.critical) : '—'} tone="critical" />
+        <SummaryCard icon={CircleAlert} label="Stock bajo" value={summary ? formatInteger(summary.low) : '—'} tone="low" />
+        <SummaryCard icon={BellRing} label="En atención" value={summary ? formatInteger(summary.attention) : '—'} tone="blue" />
       </div>
 
       <div className="rules-banner">
@@ -113,8 +113,8 @@ export default function AlertsPage() {
               <StatusPill value={detail.alert_level} />
             </div>
             <div className="detail-grid">
-              <div><span>Existencia actual</span><strong>{formatNumber(detail.quantity)}</strong></div>
-              <div><span>Stock mínimo</span><strong>{formatNumber(detail.min_stock)}</strong></div>
+              <div><span>Existencia actual</span><strong>{formatInteger(detail.quantity)}</strong></div>
+              <div><span>Stock mínimo</span><strong>{formatInteger(detail.min_stock)}</strong></div>
               <div><span>Umbral preventivo</span><strong>{formatNumber(detail.preventive_threshold)}</strong></div>
               <div><span>Porcentaje aplicado</span><strong>{formatNumber(detail.effective_percentage)} %</strong></div>
               <div><span>Salida diaria promedio</span><strong>{formatNumber(detail.avg_daily_out)}</strong></div>
@@ -124,9 +124,9 @@ export default function AlertsPage() {
             <div className="mini-list">
               {detail.recentMovements?.length ? detail.recentMovements.map((movement) => (
                 <div key={movement.id} className="mini-list__row">
-                  <div><strong>{movement.type === 'IN' ? 'Entrada' : 'Salida'} · {formatNumber(movement.quantity)} uds.</strong>
+                  <div><strong>{movement.type === 'IN' ? 'Entrada' : 'Salida'} · {formatInteger(movement.quantity)} uds.</strong>
                     <span>{formatDateTime(movement.movement_date)} · {movement.user_name}</span></div>
-                  <small>{formatNumber(movement.stock_after)} uds.</small>
+                  <small>{formatInteger(movement.stock_after)} uds.</small>
                 </div>
               )) : <p>No hay movimientos registrados.</p>}
             </div>

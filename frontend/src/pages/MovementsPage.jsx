@@ -5,17 +5,18 @@ import { errorMessage } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useApi } from '../hooks/useApi.js';
-import { daysAgoISO, formatDateTime, formatNumber, todayISO } from '../utils/format.js';
+import { daysAgoISO, formatDateTime, formatInteger, todayISO } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import Table from '../components/ui/Table.jsx';
 import Pagination from '../components/ui/Pagination.jsx';
 import StatusPill from '../components/ui/StatusPill.jsx';
-import { Field, Input, Select, Textarea } from '../components/ui/Field.jsx';
+import { Field, Input, IntegerInput, Select, Textarea } from '../components/ui/Field.jsx';
 
-const emptyEntry = () => ({ productId: '', quantity: 1, supplierId: '', notes: '', movementDate: todayISO() });
-const emptyExit = () => ({ productId: '', quantity: 1, reason: '', notes: '', movementDate: todayISO() });
+const emptyEntry = () => ({ productId: '', quantity: '1', supplierId: '', notes: '', movementDate: todayISO() });
+const emptyExit = () => ({ productId: '', quantity: '1', reason: '', notes: '', movementDate: todayISO() });
+const apiNumber = (value) => (value === '' || value === null || value === undefined ? '' : Number(value));
 
 export default function MovementsPage() {
   const { hasPermission } = useAuth();
@@ -55,7 +56,7 @@ export default function MovementsPage() {
       const source = type === 'IN' ? entry : exit;
       const payload = {
         productId: Number(source.productId),
-        quantity: Number(source.quantity),
+        quantity: apiNumber(source.quantity),
         notes: source.notes || null,
         movementDate: source.movementDate ? new Date(`${source.movementDate}T12:00:00`).toISOString() : undefined,
       };
@@ -63,7 +64,7 @@ export default function MovementsPage() {
       else payload.reason = source.reason;
 
       const response = type === 'IN' ? await movementsApi.entry(payload) : await movementsApi.exit(payload);
-      success(`${type === 'IN' ? 'Entrada' : 'Salida'} registrada. Stock resultante: ${formatNumber(response.data.product.quantity)} unidades.`);
+      success(`${type === 'IN' ? 'Entrada' : 'Salida'} registrada. Stock resultante: ${formatInteger(response.data.product.quantity)} unidades.`);
       if (type === 'IN') setEntry(emptyEntry()); else setExit(emptyExit());
       reload();
       window.dispatchEvent(new Event('stockalert:refresh-alerts'));
@@ -75,9 +76,9 @@ export default function MovementsPage() {
     { key: 'movement_date', label: 'Fecha', render: (row) => formatDateTime(row.movement_date) },
     { key: 'type', label: 'Tipo', render: (row) => <StatusPill value={row.type} /> },
     { key: 'product_name', label: 'Producto', render: (row) => <><strong>{row.product_name}</strong><small className="cell-sub">{row.product_code}</small></> },
-    { key: 'quantity', label: 'Cantidad', align: 'right', render: (row) => formatNumber(row.quantity) },
-    { key: 'stock_before', label: 'Stock anterior', align: 'right', render: (row) => formatNumber(row.stock_before) },
-    { key: 'stock_after', label: 'Stock resultante', align: 'right', render: (row) => formatNumber(row.stock_after) },
+    { key: 'quantity', label: 'Cantidad', align: 'right', render: (row) => formatInteger(row.quantity) },
+    { key: 'stock_before', label: 'Stock anterior', align: 'right', render: (row) => formatInteger(row.stock_before) },
+    { key: 'stock_after', label: 'Stock resultante', align: 'right', render: (row) => formatInteger(row.stock_after) },
     { key: 'user_name', label: 'Responsable' },
     { key: 'reason', label: 'Motivo / proveedor', render: (row) => row.reason || row.supplier_name || '—' },
   ];
@@ -107,11 +108,11 @@ export default function MovementsPage() {
                   </Select>
                 </Field>
                 {entry.productId && (
-                  <div className="info-box"><span>Stock actual: <strong>{formatNumber(selectedProduct(entry.productId)?.quantity || 0)}</strong> unidades</span></div>
+                  <div className="info-box"><span>Stock actual: <strong>{formatInteger(selectedProduct(entry.productId)?.quantity || 0)}</strong> unidades</span></div>
                 )}
                 <div className="form-row">
                   <Field label="Cantidad">
-                    <Input type="number" min="0.001" step="0.001" required value={entry.quantity} onChange={(event) => setEntry({ ...entry, quantity: event.target.value })} />
+                    <IntegerInput min={1} required value={entry.quantity} onChange={(value) => setEntry({ ...entry, quantity: value })} />
                   </Field>
                   <Field label="Fecha">
                     <Input type="date" required value={entry.movementDate} onChange={(event) => setEntry({ ...entry, movementDate: event.target.value })} />
@@ -140,11 +141,11 @@ export default function MovementsPage() {
                   </Select>
                 </Field>
                 {exit.productId && (
-                  <div className="info-box"><span>Stock actual: <strong>{formatNumber(selectedProduct(exit.productId)?.quantity || 0)}</strong> unidades</span></div>
+                  <div className="info-box"><span>Stock actual: <strong>{formatInteger(selectedProduct(exit.productId)?.quantity || 0)}</strong> unidades</span></div>
                 )}
                 <div className="form-row">
                   <Field label="Cantidad">
-                    <Input type="number" min="0.001" step="0.001" required value={exit.quantity} onChange={(event) => setExit({ ...exit, quantity: event.target.value })} />
+                    <IntegerInput min={1} required value={exit.quantity} onChange={(value) => setExit({ ...exit, quantity: value })} />
                   </Field>
                   <Field label="Fecha">
                     <Input type="date" required value={exit.movementDate} onChange={(event) => setExit({ ...exit, movementDate: event.target.value })} />

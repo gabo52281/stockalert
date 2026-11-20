@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { aiApi } from '../api/endpoints.js';
 import { useApi } from '../hooks/useApi.js';
-import { formatCurrency, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatInteger, formatNumber } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Table from '../components/ui/Table.jsx';
@@ -40,7 +40,7 @@ export default function AiInsightsPage() {
       label: 'Producto',
       render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.code} · {row.category}</small></>,
     },
-    { key: 'stock', label: 'Stock', align: 'right', render: (row) => formatNumber(row.stock) },
+    { key: 'stock', label: 'Stock', align: 'right', render: (row) => formatInteger(row.stock) },
     {
       key: 'forecastDailyDemand',
       label: 'Demanda/día',
@@ -53,8 +53,8 @@ export default function AiInsightsPage() {
       align: 'right',
       render: (row) => (row.daysOfCover === null ? '—' : `${formatNumber(row.daysOfCover)} días`),
     },
-    { key: 'suggestedQty', label: 'Reponer', align: 'right', render: (row) => <strong>{formatNumber(row.suggestedQty)} uds.</strong> },
-    { key: 'reorderPoint', label: 'Punto de pedido', align: 'right', render: (row) => formatNumber(row.reorderPoint) },
+    { key: 'suggestedQty', label: 'Reponer', align: 'right', render: (row) => <strong>{formatInteger(row.suggestedQty)} uds.</strong> },
+    { key: 'reorderPoint', label: 'Punto de pedido', align: 'right', render: (row) => formatInteger(row.reorderPoint) },
     { key: 'risk', label: 'Riesgo', render: (row) => <Badge tone={RISK_TONE[row.risk] || 'neutral'}>{row.risk}</Badge> },
     {
       key: 'forecastConfidence',
@@ -102,7 +102,7 @@ export default function AiInsightsPage() {
       <div className="stats-grid">
         <Card className="stat-card stat-card--blue"><div className="stat-card__icon"><PackagePlus size={21} /></div><div><span>Productos analizados</span><strong>{formatNumber(data?.summary?.analyzedProducts || 0)}</strong></div></Card>
         <Card className="stat-card stat-card--orange"><div className="stat-card__icon"><AlertTriangle size={21} /></div><div><span>Riesgo alto o crítico</span><strong>{formatNumber(data?.summary?.highRiskProducts || 0)}</strong></div></Card>
-        <Card className="stat-card stat-card--cyan"><div className="stat-card__icon"><TrendingUp size={21} /></div><div><span>Unidades a reponer</span><strong>{formatNumber(data?.summary?.unitsToReplenish || 0)}</strong></div></Card>
+        <Card className="stat-card stat-card--cyan"><div className="stat-card__icon"><TrendingUp size={21} /></div><div><span>Unidades a reponer</span><strong>{formatInteger(data?.summary?.unitsToReplenish || 0)}</strong></div></Card>
         <Card className="stat-card stat-card--green"><div className="stat-card__icon"><Bot size={21} /></div><div><span>Inversión estimada</span><strong>{formatCurrency(data?.summary?.estimatedPurchaseCost || 0)}</strong></div></Card>
       </div>
 

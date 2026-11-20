@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { dashboardApi } from '../api/endpoints.js';
 import { useApi } from '../hooks/useApi.js';
-import { formatCurrency, formatDateTime, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatDateTime, formatInteger, formatNumber } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
 import Loading from '../components/ui/Loading.jsx';
@@ -54,13 +54,13 @@ export default function DashboardPage() {
       />
 
       <div className="stats-grid">
-        <StatCard icon={Boxes} label="Referencias activas" value={formatNumber(summary.active_products)} tone="blue" />
-        <StatCard icon={Package} label="Unidades disponibles" value={formatNumber(summary.total_units)} tone="cyan" />
+        <StatCard icon={Boxes} label="Referencias activas" value={formatInteger(summary.active_products)} tone="blue" />
+        <StatCard icon={Package} label="Unidades disponibles" value={formatInteger(summary.total_units)} tone="cyan" />
         <StatCard
           icon={CircleAlert}
           label="Productos en atención"
-          value={formatNumber(alerts.attention)}
-          hint={`${alerts.critical} críticos · ${alerts.out_of_stock} agotados`}
+          value={formatInteger(alerts.attention)}
+          hint={`${formatInteger(alerts.critical)} críticos · ${formatInteger(alerts.out_of_stock)} agotados`}
           tone="orange"
         />
         <StatCard icon={Coins} label="Valor del inventario" value={formatCurrency(summary.inventory_value)} hint="Valorado al precio de compra" tone="green" />
@@ -128,7 +128,7 @@ export default function DashboardPage() {
                       <span>{formatDateTime(movement.movement_date)} · {movement.user_name}</span>
                     </div>
                     <StatusPill value={movement.type} />
-                    <small>{formatNumber(movement.quantity)} uds.</small>
+                    <small>{formatInteger(movement.quantity)} uds.</small>
                   </div>
                 ))}
               </div>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                   <div key={product.id} className="ranking__row">
                     <span className="ranking__index">{index + 1}</span>
                     <div className="ranking__bar">
-                      <div className="ranking__label"><strong>{product.name}</strong><span>{formatNumber(product.total_out)} uds.</span></div>
+                      <div className="ranking__label"><strong>{product.name}</strong><span>{formatInteger(product.total_out)} uds.</span></div>
                       <div className="progress"><div className="progress__fill" style={{ width: `${Math.min(100, (Number(product.total_out) / Number(topProducts[0].total_out || 1)) * 100)}%` }} /></div>
                     </div>
                   </div>
@@ -169,8 +169,8 @@ export default function DashboardPage() {
                 <small>Salida diaria promedio: {formatNumber(summary.avg_daily_out)} unidades</small>
               </div>
               <div className="coverage-summary__figures">
-                <div><span>Entradas</span><strong>{formatNumber(summary.entries)}</strong></div>
-                <div><span>Salidas</span><strong>{formatNumber(summary.exits)}</strong></div>
+                <div><span>Entradas</span><strong>{formatInteger(summary.entries)}</strong></div>
+                <div><span>Salidas</span><strong>{formatInteger(summary.exits)}</strong></div>
                 <div><span>Valor venta</span><strong>{formatCurrency(summary.inventory_sale_value)}</strong></div>
               </div>
             </div>

@@ -20,3 +20,6 @@ export function Select({ children, ...props }) {
 export function Textarea(props) {
   return <textarea className="input textarea" {...props} />;
 }
+
+export { default as IntegerInput } from './IntegerInput.jsx';
+export { default as CurrencyInput } from './CurrencyInput.jsx';

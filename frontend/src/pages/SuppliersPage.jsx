@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { formatNumber } from '../utils/format.js';
+import { formatInteger } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody } from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -139,7 +139,7 @@ export default function SuppliersPage() {
           columns={[
             { key: 'code', label: 'Código' },
             { key: 'name', label: 'Producto' },
-            { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => formatNumber(row.quantity) },
+            { key: 'quantity', label: 'Existencia', align: 'right', render: (row) => formatInteger(row.quantity) },
             { key: 'alert_level', label: 'Estado', render: (row) => <StatusPill value={row.alert_level} /> },
           ]}
           rows={viewRows}
