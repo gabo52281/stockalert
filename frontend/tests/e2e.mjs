@@ -56,25 +56,49 @@ try {
   await page.locator('.data-table tbody tr').first().waitFor({ timeout: 15000 });
   console.log('6. Módulo de indicadores cargado con cobertura real');
 
+  const statusResponse = page.waitForResponse(
+    (response) => response.url().includes('/api/ia/status') && response.status() === 200,
+    { timeout: 10000 },
+  );
   await page.getByRole('link', { name: 'Asistente IA' }).click();
   await page.getByText('Copiloto de inventario').first().waitFor({ timeout: 10000 });
   await page.getByText('Recomendaciones importantes').waitFor({ timeout: 15000 });
   await page.getByText('Chat con tu copiloto').waitFor({ timeout: 10000 });
+  await statusResponse;
   console.log('7. Copiloto con recomendaciones reales cargado');
 
-  await page.getByRole('button', { name: '¿Qué debo comprar esta semana?' }).click();
-  await page.getByText(/Te recomiendo priorizar/).waitFor({ timeout: 20000 });
-  assert.ok(await page.locator('.ai-message').count() >= 2, 'El chat debe conservar el historial');
-  console.log('8. Chat respondió y conservó el historial');
+  const aiAvailable = await page.getByText('OpenRouter gratuito', { exact: true }).count() > 0;
+  console.log('8. Estado del chat:', aiAvailable ? 'OpenRouter disponible' : 'IA temporalmente fuera de servicio');
 
-  await page.getByRole('button', { name: /Tengo \$ 500\.000/ }).click();
-  await page.locator('.ai-mini-table').waitFor({ timeout: 20000 });
-  assert.ok(await page.locator('.ai-mini-table tbody tr').count() > 0, 'El plan presupuestario debe tener filas');
-  console.log('9. Plan dentro de presupuesto con tabla pequeña');
+  async function ask(label, expectedMessages) {
+    await page.getByRole('button', { name: label }).click();
+    const consentButton = page.getByRole('button', { name: 'Autorizar resumen' });
+    if (await consentButton.isVisible().catch(() => false)) await consentButton.click();
+    await page.waitForFunction(
+      (count) => document.querySelectorAll('.ai-message').length >= count,
+      expectedMessages,
+      { timeout: 30000 },
+    );
+  }
+
+  await ask('¿Qué debo comprar esta semana?', 3);
+  assert.equal(await page.getByText('Análisis local').count(), 0, 'No debe existir un modo de respuestas locales');
+  const firstAnswer = await page.locator('.ai-message__bubble').last().innerText();
+  assert.ok(firstAnswer.length > 0, 'Debe mostrarse una respuesta del proveedor o el aviso de servicio no disponible');
+  if (aiAvailable) {
+    assert.ok(!firstAnswer.includes('temporalmente fuera de servicio'), 'Con proveedor disponible no debe mostrarse el aviso de caída');
+  } else {
+    assert.ok(firstAnswer.includes('temporalmente fuera de servicio'), 'Sin proveedor debe mostrarse el aviso exacto');
+  }
+  console.log('9. Respuesta mostrada solo desde OpenRouter o aviso de servicio no disponible');
+
+  await ask(/Tengo \$ 500\.000/, 5);
+  assert.ok(await page.locator('.ai-message').count() >= 5, 'El chat debe conservar el historial');
+  console.log('10. Segunda pregunta conserva el historial');
 
   await page.getByRole('button', { name: /Nueva conversación/ }).click();
   assert.equal(await page.locator('.ai-message').count(), 1, 'Nueva conversación debe reiniciar el historial');
-  console.log('10. Nueva conversación reinicia el historial');
+  console.log('11. Nueva conversación reinicia el historial');
 
   await page.getByRole('link', { name: 'Reportes' }).click();
   await page.getByText('Configuración del reporte').waitFor({ timeout: 10000 });
@@ -86,22 +110,22 @@ try {
     page.getByRole('button', { name: 'Exportar PDF' }).click(),
   ]);
   assert.match(download.suggestedFilename(), /\.pdf$/);
-  console.log('11. Reportes con vista previa y descarga PDF:', download.suggestedFilename());
+  console.log('12. Reportes con vista previa y descarga PDF:', download.suggestedFilename());
 
   // 3. Cierre de sesión
   await page.locator('.user-menu__trigger').click();
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await page.waitForURL(`${BASE}/login`, { timeout: 10000 });
-  console.log('12. Logout y redirección verificados');
+  console.log('13. Logout y redirección verificados');
 
   // 4. Vista móvil
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: 'networkidle' });
   assert.ok(await page.getByRole('button', { name: 'Ingresar al sistema' }).isVisible());
-  console.log('13. Diseño responsive en 390 px verificado');
+  console.log('14. Diseño responsive en 390 px verificado');
 
   assert.deepEqual(errors, [], `Errores de consola/navegador: ${errors.join(' | ')}`);
-  console.log('\nE2E: 13 comprobaciones superadas, sin errores de JavaScript.');
+  console.log('\nE2E: 14 comprobaciones superadas, sin errores de JavaScript.');
 } finally {
   await browser.close();
 }

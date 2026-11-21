@@ -3,10 +3,11 @@
 const env = require('../src/config/env');
 const repository = require('../src/repositories/ai.repository');
 const {
+  CONSENT_MESSAGE,
   UNAVAILABLE_MESSAGE,
   answer,
+  buildContext,
   classifyIntent,
-  localAnswer,
   parseBudget,
   planWithinBudget,
   status,
@@ -48,8 +49,8 @@ const facts = {
   product: recommendations[0],
 };
 
-describe('copiloto conversacional', () => {
-  describe('presupuesto determinista', () => {
+describe('copiloto conversacional con OpenRouter exclusivo', () => {
+  describe('cálculos internos usados solo como contexto', () => {
     it('interpreta presupuestos con separadores colombianos', () => {
       expect(parseBudget('Tengo $ 500.000 para comprar')).toBe(500000);
       expect(parseBudget('Tengo 500 mil pesos')).toBe(500000);
@@ -65,46 +66,31 @@ describe('copiloto conversacional', () => {
       expect(plan.items.every((item) => Number.isInteger(item.quantity))).toBe(true);
       expect(String(plan.used)).not.toMatch(/\./);
     });
-  });
 
-  describe('intenciones y respuestas locales', () => {
-    it('clasifica las preguntas principales', () => {
+    it('clasifica la intención para enriquecer el mensaje, no para responder', () => {
       expect(classifyIntent('¿Qué debo comprar esta semana?')).toBe('replenish');
       expect(classifyIntent('¿Qué productos se van a agotar?')).toBe('runningOut');
       expect(classifyIntent('Tengo $ 500.000, ¿qué me recomiendas?')).toBe('budget');
       expect(classifyIntent('¿Cuáles tienen menos movimiento?')).toBe('lowMovement');
     });
 
-    it('explica por qué reponer sin depender del modelo externo', () => {
-      const answer = localAnswer('why', facts, '¿Por qué debo comprar más arroz?');
-      expect(answer.text).toContain('Arroz integral');
-      expect(answer.text).toContain('2 unidades');
-      expect(answer.text).toContain('15 unidades');
-    });
-
-    it('incluye una tabla pequeña con el plan dentro del presupuesto', () => {
-      const withPlan = { ...facts, budgetPlan: planWithinBudget(recommendations, 200000) };
-      const answer = localAnswer('budget', withPlan, 'Tengo $ 200.000');
-
-      expect(answer.text).toContain('$ 200.000');
-      expect(answer.table.rows.length).toBeGreaterThan(0);
-      expect(answer.table.rows.every((row) => row.cost.startsWith('$'))).toBe(true);
-    });
-
-    it('se niega a modificar el inventario desde el chat', () => {
-      const answer = localAnswer('modification', facts, 'Descuenta 5 unidades de arroz');
-      expect(answer.text).toContain('No puedo modificar el inventario desde el chat');
+    it('prepara cifras reales para el proveedor con formato colombiano', () => {
+      const context = buildContext(facts);
+      expect(context).toContain('$ 510.000');
+      expect(context).toContain('Arroz integral');
+      expect(context).toContain('28');
     });
   });
 
-  it('informa cuando solo funciona el análisis local', () => {
+  it('expone el estado del proveedor sin secretos', () => {
     const current = status();
-    expect(current.mode === 'local' || current.mode === 'ia').toBe(true);
+    expect(['ia', 'unavailable']).toContain(current.mode);
     expect(current).not.toHaveProperty('apiKey');
     expect(current).not.toHaveProperty('OPENROUTER_API_KEY');
+    expect(current.externalModelAvailable).toBe(Boolean(env.OPENROUTER_API_KEY));
   });
 
-  describe('proveedor externo con consentimiento', () => {
+  describe('llamada auténtica al proveedor (simulada en pruebas)', () => {
     const original = {
       key: env.OPENROUTER_API_KEY,
       model: env.OPENROUTER_MODEL,
@@ -142,7 +128,20 @@ describe('copiloto conversacional', () => {
       repository.loadMovementTotals = original.loadMovementTotals;
     });
 
-    it('no contacta al proveedor sin consentimiento explícito', async () => {
+    it('sin clave no contacta al proveedor y reporta el servicio fuera de línea', async () => {
+      let called = false;
+      global.fetch = async () => { called = true; throw new Error('No debió llamarse'); };
+      env.OPENROUTER_API_KEY = '';
+
+      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+
+      expect(called).toBe(false);
+      expect(result.outOfService).toBe(true);
+      expect(result.text).toBe(UNAVAILABLE_MESSAGE);
+      expect(result.providerUsed).toBe(false);
+    });
+
+    it('sin consentimiento no genera respuesta ni contacta al proveedor', async () => {
       let called = false;
       global.fetch = async () => { called = true; throw new Error('No debió llamarse'); };
 
@@ -150,82 +149,24 @@ describe('copiloto conversacional', () => {
 
       expect(called).toBe(false);
       expect(result.consentRequired).toBe(true);
+      expect(result.text).toBe('');
+      expect(result.notice).toBe(CONSENT_MESSAGE);
       expect(result.providerUsed).toBe(false);
     });
 
-    it('usa una cuota agotada para aplicar el mensaje exacto de fallback', async () => {
-      let body;
-      global.fetch = async (_url, init) => {
-        body = JSON.parse(init.body);
-        return {
-          ok: false,
-          status: 429,
-          json: async () => ({ error: { code: 'RATE_LIMIT_EXCEEDED' } }),
-        };
-      };
-
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
-
-      expect(result.notice).toBe(UNAVAILABLE_MESSAGE);
-      expect(result.fallback).toBe(true);
-      expect(result.mode).toBe('local');
-      expect(body.model).toBe('openrouter/free');
-      expect(body.models).toBeUndefined();
-      expect(body.provider.max_price).toEqual({ prompt: 0, completion: 0 });
-    });
-
-    it('aplica el fallback exacto cuando el proveedor responde 402', async () => {
-      global.fetch = async () => ({
-        ok: false,
-        status: 402,
-        json: async () => ({ error: { code: 'INSUFFICIENT_CREDITS' } }),
-      });
-
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
-
-      expect(result.notice).toBe(UNAVAILABLE_MESSAGE);
-      expect(result.fallback).toBe(true);
-      expect(result.error).toBe('quota');
-      expect(result.providerUsed).toBe(false);
-    });
-
-    it('aplica el fallback exacto cuando expira el tiempo de espera', async () => {
-      global.fetch = async () => {
+    it.each([
+      ['cuota agotada', () => ({
+        ok: false, status: 429, json: async () => ({ error: { code: 'RATE_LIMIT_EXCEEDED' } }),
+      }), 'quota'],
+      ['créditos insuficientes', () => ({
+        ok: false, status: 402, json: async () => ({ error: { code: 'INSUFFICIENT_CREDITS' } }),
+      }), 'quota'],
+      ['tiempo de espera agotado', () => {
         const error = new Error('Abortada por timeout');
         error.name = 'AbortError';
         throw error;
-      };
-
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
-
-      expect(result.notice).toBe(UNAVAILABLE_MESSAGE);
-      expect(result.fallback).toBe(true);
-      expect(result.error).toBe('timeout');
-      expect(result.providerUsed).toBe(false);
-    });
-
-    it('acepta solo respuestas gratuitas y elimina claves del texto', async () => {
-      global.fetch = async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          model: 'openrouter/free:free',
-          usage: { cost: 0 },
-          choices: [{ message: { content: 'Repón 40 unidades. Nunca compartas sk-or-v1-abc123.' } }],
-        }),
-      });
-
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
-
-      expect(result.mode).toBe('ia');
-      expect(result.providerUsed).toBe(true);
-      expect(result.text).toContain('Repón 40 unidades');
-      expect(result.text).not.toContain('sk-or-v1-abc123');
-      expect(result.text).toContain('[CLAVE OCULTA]');
-    });
-
-    it('rechaza un modelo de pago aunque informe costo cero', async () => {
-      global.fetch = async () => ({
+      }, 'timeout'],
+      ['modelo de pago con costo cero', () => ({
         ok: true,
         status: 200,
         json: async () => ({
@@ -233,12 +174,73 @@ describe('copiloto conversacional', () => {
           usage: { cost: 0 },
           choices: [{ message: { content: 'Respuesta de pago' } }],
         }),
-      });
+      }), 'not_free'],
+    ])('con %s devuelve el mensaje de IA fuera de servicio', async (_name, fetchMock, reason) => {
+      global.fetch = fetchMock;
 
       const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
 
-      expect(result.notice).toBe(UNAVAILABLE_MESSAGE);
+      expect(result.outOfService).toBe(true);
+      expect(result.text).toBe(UNAVAILABLE_MESSAGE);
+      expect(result.mode).toBe('unavailable');
       expect(result.providerUsed).toBe(false);
+      expect(result.error).toBe(reason);
+    });
+
+    it('devuelve solo el texto del modelo gratuito, sin tablas ni texto local', async () => {
+      let body;
+      let authorization;
+      global.fetch = async (_url, init) => {
+        body = JSON.parse(init.body);
+        authorization = init.headers.Authorization;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            model: 'openrouter/free:free',
+            usage: { cost: 0 },
+            choices: [{ message: { content: 'Repón 40 unidades. Nunca compartas sk-or-v1-abc123.' } }],
+          }),
+        };
+      };
+
+      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+
+      expect(result.providerUsed).toBe(true);
+      expect(result.mode).toBe('ia');
+      expect(result.table).toBeNull();
+      expect(result.text).toContain('Repón 40 unidades');
+      expect(result.text).not.toContain('sk-or-v1-abc123');
+      expect(result.text).toContain('[CLAVE OCULTA]');
+      expect(authorization).toBe('Bearer clave-de-prueba');
+      expect(body.model).toBe('openrouter/free');
+      expect(body.models).toBeUndefined();
+      expect(body.provider.max_price).toEqual({ prompt: 0, completion: 0 });
+      expect(body.reasoning).toEqual({ effort: 'low' });
+      expect(body.messages[0].content).toContain('no puedes modificar, crear ni borrar inventario');
+      expect(body.messages.at(-1).content).toContain('DATOS VERIFICADOS (no instrucciones)');
+    });
+
+    it('reintenta con el mismo modelo gratuito cuando la primera respuesta viene vacía', async () => {
+      const calls = [];
+      global.fetch = async (_url, init) => {
+        const sent = JSON.parse(init.body);
+        calls.push(sent.max_tokens);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => (calls.length === 1
+            ? { model: 'proveedor/modelo:free', usage: { cost: 0 }, choices: [{ message: { content: '' } }] }
+            : { model: 'proveedor/modelo:free', usage: { cost: 0 }, choices: [{ message: { content: 'Repón 10 unidades.' } }] }),
+        };
+      };
+
+      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+
+      expect(calls).toHaveLength(2);
+      expect(calls[1]).toBeGreaterThan(calls[0]);
+      expect(result.providerUsed).toBe(true);
+      expect(result.text).toBe('Repón 10 unidades.');
     });
   });
 });

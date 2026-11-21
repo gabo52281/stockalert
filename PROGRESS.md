@@ -4,13 +4,14 @@ Registro de avance y estado final del proyecto tras la refactorización a Neon +
 
 ## Estado actual
 
-STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. Se conservaron todas las funcionalidades anteriores; el Asistente IA evolucionó a un **copiloto conversacional** con modelo gratuito de OpenRouter, manteniendo el motor determinista local como fuente de cifras.
+STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. Se conservaron todas las funcionalidades anteriores; el Asistente IA es un **copiloto conversacional** cuyo texto lo genera exclusivamente el modelo gratuito de OpenRouter. El motor determinista sigue siendo la fuente de cifras reales y solo prepara el contexto.
 
-- Backend: 7 archivos de prueba, 69/69 pruebas superadas contra la base de datos de verificación.
+- Backend: 7 archivos de prueba, 70/70 pruebas superadas contra la base de datos de verificación.
 - Sin base de datos: 4 archivos, 44/44 pruebas puras superadas.
-- Frontend: lint limpio, build correcto y 13/13 comprobaciones E2E en navegador (más 10/10 numéricas y 10/10 de pestañas de movimientos).
+- Frontend: lint limpio, build correcto y 14/14 comprobaciones E2E en navegador con clave real (más 10/10 numéricas y 10/10 de pestañas de movimientos).
 - Reportes: los 10 PDF rediseñados generados y revisados página por página; 0 superposiciones en datos reales y de estrés.
-- Despliegue real en Neon/Vercel: **no ejecutado** desde este entorno (sin credenciales ni cuenta). La clave de OpenRouter expuesta debe rotarse y configurarse solo en el backend.
+- OpenRouter: solicitudes auténticas verificadas, tanto directas como mediante `POST /api/ia/chat`, con modelos `:free` y `usage.cost: 0`; sin respuestas locales ni tablas deterministas en el chat.
+- Despliegue real en Neon/Vercel: **no ejecutado** desde este entorno (sin credenciales ni cuenta). La clave de OpenRouter expuesta en la conversación anterior debe rotarse y configurarse solo en el backend.
 
 ## FASE 1 — Análisis y planificación
 
@@ -95,8 +96,8 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Rediseño de los 10 reportes: encabezado azul oscuro con STOCKALERT, título y fecha/hora en `es-CO`, filtros legibles, tabla con anchos fijos, encabezados repetidos, altura de fila adaptable, filas alternadas suaves, cifras a la derecha, texto a la izquierda y pie `Página X de Y` calculado en dos pasadas.
 - A4 horizontal automático cuando hay 8+ columnas o 3+ columnas monetarias; resúmenes útiles por reporte; mismo formato COP/entero en PDF, CSV y vista previa.
 - `AiInsightsPage.jsx` convertida en copiloto: resumen, recomendaciones, chat con historial, indicador de progreso, tablas pequeñas, preguntas rápidas, nueva conversación y consentimiento explícito antes de enviar datos agregados.
-- Backend IA: `ai-chat.service.js` con intents, presupuesto determinista, validación de modelo gratuito (`openrouter/free`, `provider.max_price` en cero, costo 0), timeout, `max_tokens`, límite por usuario y fallback exacto en 402/429/timeout/errores de proveedor.
-- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave el modo es local y no se envían datos. No hay variables `VITE_` con secretos ni modelos de pago/fallbacks.
+- Backend IA: `ai-chat.service.js` con intents, presupuesto determinista, validación de modelo gratuito (`openrouter/free`, `provider.max_price` en cero, costo 0 y modelo `:free`), timeout, `max_tokens`, `reasoning.effort: low`, límite por usuario y aviso exacto de IA fuera de servicio en 402/429/timeout/errores de proveedor.
+- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave no se envían datos y el chat informa que la IA está temporalmente fuera de servicio. No hay variables `VITE_` con secretos ni modelos de pago/fallbacks.
 
 ## Resultados reales finales
 
@@ -104,20 +105,20 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 | --- | --- |
 | `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas |
 | `npm run lint` | backend y frontend sin errores ni advertencias |
-| `npm test` con base de datos de verificación | 7 archivos, 69/69 pruebas, 3,13 s |
+| `npm test` con base de datos de verificación | 7 archivos, 70/70 pruebas, 3,38 s |
 | `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras |
 | `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` |
-| `npm run build` | correcto, 2107 módulos, 8,19 s, CSS 33,67 kB, chunks de React/Recharts/iconos separados |
+| `npm run build` | correcto, 2107 módulos, 9,03 s, CSS 33,87 kB, chunks de React/Recharts/iconos separados |
 | `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
-| E2E en desarrollo | 13/13 comprobaciones, incluye chat, historial, plan presupuestario, nueva conversación y descarga PDF; sin errores de consola |
+| E2E en desarrollo | 14/14 comprobaciones con clave real, incluye respuestas de OpenRouter, historial, nueva conversación y descarga PDF; sin errores de consola |
 | E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil |
 | E2E de pestañas de movimientos | 10/10 comprobaciones: una sola pestaña activa, cambios repetidos, selección de productos, borrado de cantidades, stock, historial, alertas y responsive |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
 | Reportes PDF reales | 10/10 en `OK`: 1–8 páginas por reporte, fechas `dd/mm/aaaa`, COP sin decimales, 0 solapamientos |
 | Estrés de PDFs | 250/600/120/300 filas, hasta 101 páginas, encabezados repetidos, 0 solapamientos, sin escribir en BD |
-| Copiloto / OpenRouter | modo local sin clave; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago aplican el fallback exacto; 0 secretos en frontend |
+| Copiloto / OpenRouter | sin respuestas locales; sin clave o ante errores muestra IA fuera de servicio; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago se rechazan; `reasoning.effort: low` y reintento gratuito si el contenido sale vacío; 6/6 llamadas auténticas consecutivas con modelos `:free` y costo 0; 0 secretos en frontend |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
-| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 8,19 s |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 9,03 s |
 
 La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos.
 

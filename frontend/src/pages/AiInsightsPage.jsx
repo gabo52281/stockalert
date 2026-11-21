@@ -43,39 +43,10 @@ const QUICK_QUESTIONS = [
 ];
 
 const INITIAL_MESSAGE = {
-  role: 'assistant',
-  text: 'Hola. Puedo ayudarte a decidir qué reponer, cuánto invertir y qué productos necesitan atención. Mis respuestas usan los datos reales de tu inventario. ¿Qué necesitas saber?',
-  mode: 'local',
-  table: null,
+  role: 'system',
+  text: 'El chat genera sus respuestas con OpenRouter (modelo gratuito) usando cifras reales de Neon. Autoriza el envío del resumen para comenzar.',
   at: new Date().toISOString(),
 };
-
-function MiniTable({ table }) {
-  if (!table?.rows?.length) return null;
-  return (
-    <div className="ai-mini-table">
-      <strong>{table.title}</strong>
-      <table>
-        <thead>
-          <tr>
-            {table.columns.map((column) => <th key={column.key}>{column.label}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row, index) => (
-            <tr key={`${row.name || 'fila'}-${index}`}>
-              {table.columns.map((column) => (
-                <td key={column.key} className={column.align === 'right' ? 'ai-mini-table__right' : ''}>
-                  {row[column.key]}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export default function AiInsightsPage() {
   const [days, setDays] = useState(30);
@@ -90,26 +61,25 @@ export default function AiInsightsPage() {
   const [question, setQuestion] = useState('');
   const [pendingQuestion, setPendingQuestion] = useState('');
   const [consent, setConsent] = useState(false);
-  const [localOnly, setLocalOnly] = useState(false);
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState('');
   const endRef = useRef(null);
 
-  const externalAvailable = Boolean(aiStatus?.externalModelAvailable) && !localOnly;
+  const externalAvailable = Boolean(aiStatus?.externalModelAvailable);
   const showConsent = externalAvailable && !consent;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, sending]);
 
-  async function sendQuestion(text, forceLocal = false, consentOverride = null) {
+  async function sendQuestion(text, consentOverride = null) {
     const clean = String(text || '').trim();
     if (!clean || sending) return;
 
-    const history = messages.slice(-8).map((message) => ({
-      role: message.role,
-      content: message.text,
-    }));
+    const history = messages
+      .filter((message) => (message.role === 'user' || message.role === 'assistant') && message.text)
+      .slice(-8)
+      .map((message) => ({ role: message.role, content: message.text }));
 
     setQuestion('');
     setPendingQuestion('');
@@ -122,16 +92,15 @@ export default function AiInsightsPage() {
         question: clean,
         days,
         leadTimeDays,
-        consent: forceLocal ? false : (consentOverride ?? (consent && !localOnly)),
+        consent: consentOverride ?? consent,
         history,
       });
       const response = result.data;
+      const text = response.text || response.notice || '';
       setMessages((previous) => [...previous, {
-        role: 'assistant',
-        text: response.text,
-        table: response.table,
-        mode: response.mode,
-        notice: response.notice,
+        role: response.outOfService || response.consentRequired ? 'system' : 'assistant',
+        text,
+        outOfService: Boolean(response.outOfService),
         model: response.model,
         at: new Date().toISOString(),
       }]);
@@ -153,15 +122,7 @@ export default function AiInsightsPage() {
 
   function acceptConsent() {
     setConsent(true);
-    if (pendingQuestion) sendQuestion(pendingQuestion, false, true);
-  }
-
-  function useLocalOnly() {
-    setLocalOnly(true);
-    const pending = pendingQuestion;
-    setPendingQuestion('');
-    setQuestion('');
-    if (pending) sendQuestion(pending, true);
+    if (pendingQuestion) sendQuestion(pendingQuestion, true);
   }
 
   function newConversation() {
@@ -185,7 +146,7 @@ export default function AiInsightsPage() {
     <>
       <PageHeader
         title="Copiloto de inventario"
-        description="Pregunta en lenguaje sencillo y toma decisiones con datos reales de tu inventario."
+        description="Todas las respuestas del chat las genera OpenRouter con datos reales de tu inventario."
         actions={(
           <div className="ai-header-actions">
             <div className="period-switch">
@@ -258,11 +219,11 @@ export default function AiInsightsPage() {
       <Card className="ai-chat">
         <CardHeader
           title="Chat con tu copiloto"
-          subtitle="Historial de esta sesión · respuestas basadas en Neon"
+          subtitle="Historial de esta sesión · OpenRouter gratuito con cifras de Neon"
           action={(
-            <Badge tone={externalAvailable ? 'info' : 'neutral'}>
-              {externalAvailable ? <Sparkles size={13} /> : <BrainCircuit size={13} />}
-              {externalAvailable ? 'Modelo gratuito disponible' : 'Análisis local'}
+            <Badge tone={externalAvailable ? 'info' : 'danger'}>
+              {externalAvailable ? <Sparkles size={13} /> : <AlertTriangle size={13} />}
+              {externalAvailable ? 'OpenRouter gratuito' : 'IA temporalmente fuera de servicio'}
             </Badge>
           )}
         />
@@ -271,41 +232,43 @@ export default function AiInsightsPage() {
             <div className="ai-consent">
               <ShieldCheck size={18} />
               <div>
-                <strong>Antes de usar el modelo externo</strong>
+                <strong>Antes de usar OpenRouter</strong>
                 <p>
                   Solo se enviará un resumen agregado (productos, existencias, cantidades sugeridas y precios).
-                  No se envían usuarios, correos ni credenciales. El análisis local sigue funcionando sin este paso.
+                  No se envían usuarios, correos ni credenciales. Sin esta autorización el chat no genera respuestas.
                 </p>
               </div>
               <div className="ai-consent__actions">
                 <button type="button" className="btn btn--sm btn--primary" onClick={acceptConsent}>Autorizar resumen</button>
-                <button type="button" className="btn btn--sm btn--ghost" onClick={useLocalOnly}>Solo cálculos locales</button>
               </div>
             </div>
           )}
 
           <div className="ai-chat__messages">
-            {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`ai-message ai-message--${message.role}`}>
-                <span className="ai-message__avatar">
-                  {message.role === 'assistant' ? <Bot size={16} /> : 'Tú'}
-                </span>
-                <div className="ai-message__body">
-                  <div className="ai-message__meta">
-                    <strong>{message.role === 'assistant' ? 'Copiloto' : 'Tú'}</strong>
-                    {message.role === 'assistant' && (
-                      <span>{message.mode === 'ia' ? 'Respuesta con modelo gratuito' : 'Análisis local'}</span>
-                    )}
-                    {message.at && <time>{formatDateTime(message.at)}</time>}
+            {messages.map((message, index) => {
+              const isSystem = message.role === 'system';
+              const isOutage = Boolean(message.outOfService);
+              return (
+                <div key={`${message.role}-${index}`} className={`ai-message ai-message--${isSystem ? 'system' : message.role}`}>
+                  <span className="ai-message__avatar">
+                    {isSystem
+                      ? (isOutage ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />)
+                      : (message.role === 'assistant' ? <Bot size={16} /> : 'Tú')}
+                  </span>
+                  <div className="ai-message__body">
+                    <div className="ai-message__meta">
+                      <strong>{isSystem ? 'Sistema' : (message.role === 'assistant' ? 'Copiloto' : 'Tú')}</strong>
+                      {message.role === 'assistant' && <span>OpenRouter · modelo gratuito</span>}
+                      {isOutage && <span>Servicio no disponible</span>}
+                      {message.at && <time>{formatDateTime(message.at)}</time>}
+                    </div>
+                    <div className="ai-message__bubble">
+                      {String(message.text || '').split('\n').map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}
+                    </div>
                   </div>
-                  <div className="ai-message__bubble">
-                    {message.text.split('\n').map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}
-                  </div>
-                  {message.notice && <p className="ai-message__notice">{message.notice}</p>}
-                  <MiniTable table={message.table} />
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {sending && (
               <div className="ai-thinking"><span className="ai-thinking__dot" /><span className="ai-thinking__dot" /><span className="ai-thinking__dot" /> Pensando…</div>
             )}
@@ -345,9 +308,10 @@ export default function AiInsightsPage() {
         <summary><BrainCircuit size={16} /> Cómo funciona el cálculo automático</summary>
         <div className="ai-technical__body">
           <p>
-            El motor local de STOCKALERT estima la salida diaria con el historial reciente, calcula cuánto
-            duraría cada producto y define una cantidad sugerida para cubrir {leadTimeDays} días de reposición.
-            Las alertas de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
+            Estos cálculos no redactan las respuestas del chat: solo preparan el resumen agregado que se envía
+            a OpenRouter. El motor de STOCKALERT estima la salida diaria con el historial reciente, calcula
+            cuánto duraría cada producto y define una cantidad sugerida para cubrir {leadTimeDays} días de
+            reposición. Las alertas de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
           </p>
           <div className="formula-banner">
             <BrainCircuit size={18} />

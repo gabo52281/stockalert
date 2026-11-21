@@ -229,6 +229,8 @@
 }
 .ai-message--user .ai-message__bubble { background: var(--blue-600); border-color: var(--blue-600); color: #FFFFFF; border-radius: 12px 12px 3px 12px; }
 .ai-message__bubble p + p { margin-top: 6px; }
+.ai-message--system .ai-message__avatar { background: var(--orange-100); color: var(--orange-600); }
+.ai-message--system .ai-message__bubble { background: #FFF8ED; border-style: dashed; color: var(--slate-600); }
 .ai-message__notice { margin: 6px 3px 0; font-size: 0.72rem; color: var(--orange-600); line-height: 1.5; }
 
 .ai-mini-table { margin-top: 9px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
