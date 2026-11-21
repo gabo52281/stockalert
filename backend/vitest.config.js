@@ -11,6 +11,7 @@ module.exports = defineConfig({
     hookTimeout: 30000,
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
+    globalSetup: './tests/global-setup.js',
     globalTeardown: './tests/teardown.js',
     fileParallelism: false,
   },

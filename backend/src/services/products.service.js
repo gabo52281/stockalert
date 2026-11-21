@@ -55,6 +55,7 @@ async function setAlertSettings(id, settings) {
 }
 
 async function remove(id) {
+  await get(id);
   return repository.remove(id);
 }
 

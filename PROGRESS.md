@@ -1,24 +1,25 @@
 # PROGRESS — STOCKALERT
 
-Registro de avance y estado final del proyecto tras la refactorización a Neon + Vercel.
+Registro de avance y estado final del proyecto tras la refactorización a Neon + Vercel y la adopción de la arquitectura multiempresa.
 
 ## Estado actual
 
-STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. Se conservaron todas las funcionalidades anteriores; el Asistente IA es un **copiloto conversacional** cuyo texto lo genera exclusivamente el modelo gratuito de OpenRouter. El motor determinista sigue siendo la fuente de cifras reales y solo prepara el contexto.
+STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. La arquitectura multiempresa ya está implementada: un **SUPERADMINISTRADOR global** con panel `/superadmin` administra establecimientos y cuentas; cada establecimiento tiene su propio inventario aislado y sus usuarios asignados. El superadministrador **no tiene acceso a inventario ni IA**.
 
-- Backend: 7 archivos de prueba, 70/70 pruebas superadas contra la base de datos de verificación.
-- Sin base de datos: 4 archivos, 44/44 pruebas puras superadas.
-- Frontend: lint limpio, build correcto y 14/14 comprobaciones E2E en navegador con clave real (más 10/10 numéricas y 10/10 de pestañas de movimientos).
-- Reportes: los 10 PDF rediseñados generados y revisados página por página; 0 superposiciones en datos reales y de estrés.
-- OpenRouter: solicitudes auténticas verificadas, tanto directas como mediante `POST /api/ia/chat`, con modelos `:free` y `usage.cost: 0`; sin respuestas locales ni tablas deterministas en el chat.
-- Despliegue real en Neon/Vercel: **no ejecutado** desde este entorno (sin credenciales ni cuenta). La clave de OpenRouter expuesta en la conversación anterior debe rotarse y configurarse solo en el backend.
+- Roles: `SUPERADMINISTRADOR` (`establishments:*`, `users:*`, `admin-stats:read`, `profile:*`), `ADMINISTRADOR` y `ENCARGADO_INVENTARIO` (inventario completo en su tenant) y `CONSULTA` (solo lectura en su tenant).
+- Última verificación local: `npm run lint` sin errores (0), `npm test` con **8 archivos / 99 pruebas OK** usando fixture local, y `npm run build` correcto con **2108 módulos en 9,57 s**.
+- El contexto de tenant se toma del JWT (`pv`/`est`) y se valida contra la base de datos: usuario real, `password_version`, establecimiento activo y token no revocado. Se propaga con `AsyncLocalStorage` y GUCs por transacción; RLS/FORCE RLS, predicados SQL explícitos y `fn_app_is_system()` como único bypass. El `tenant_id` del frontend se ignora.
+- Migraciones `005`–`008` incluidas en el repositorio y **aplicadas a Neon con autorización explícita**; `admin@su-dominio.com` promovido a `SUPERADMINISTRADOR` sin cambiar contraseña. Despliegue aún pendiente.
+- Insights deterministas: cálculo local de indicadores. Chat conversacional: **exclusivamente OpenRouter gratuito** (`openrouter/free`, `usage.cost = 0`), con consentimiento y sin fallback local ni de pago.
+- Seed demo deshabilitado: no hay credenciales demo en documentación ni tests. Las pruebas usan `TEST_*`/`E2E_*` del entorno contra un fixture local desechable.
+- Despliegue real en Vercel: **autorizado pero bloqueado** porque no hay CLI/sesión autenticada ni proyecto enlazado en este entorno; Neon ya está migrado y con el superadministrador promovido. La clave de OpenRouter debe configurarse solo en el backend y la clave expuesta en una conversación anterior debe rotarse.
 
 ## FASE 1 — Análisis y planificación
 
 **Estado:** COMPLETADA
 
 - Monorepo con `backend/`, `frontend/`, `database/` y `docs/`.
-- JWT con revocación por `jti`, tres roles y permisos verificados en backend.
+- JWT con revocación por `jti`, cuatro roles y permisos verificados en backend.
 - Alertas calculadas en SQL y concurrencia resuelta con `SELECT ... FOR UPDATE`.
 - Primer administrador creado por script con variables de entorno.
 
@@ -27,9 +28,10 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 **Estado:** COMPLETADA
 
 - `001_init.sql`, `002_config.sql`, `003_fix_movement_type_length.sql` y `004_inventory_view.sql` conservados sin cambios.
-- `fn_register_movement()` como única vía de entradas/salidas.
-- `v_product_inventory` como fuente única de verdad de alertas, cobertura y valoración.
-- Seed demo idempotente (10 productos, 313 movimientos, 4 usuarios), ahora bloqueado en producción.
+- Migraciones `005_multi_tenant.sql`, `006_tenant_foreign_keys.sql`, `007_tenant_defaults.sql` y `008_harden_tenant_boundaries.sql` añadidas: tenant, unicidad por establecimiento, FK compuestas, defaults desde GUC, RLS endurecido y movimientos validados.
+- `fn_register_movement()` como única vía de entradas/salidas, ahora con validación de tenant de `user_id` y `supplier_id`.
+- `v_product_inventory` como fuente única de verdad de alertas, cobertura y valoración, filtrada por establecimiento.
+- El seed demostrativo quedó deshabilitado: `database/seeds/001_demo.sql` solo se conserva como referencia histórica.
 
 ## FASE 3 — Backend
 
@@ -37,7 +39,8 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 
 - Express + Helmet + CORS + compresión + rate limiting + logger.
 - Zod, manejo centralizado de errores, repositorios, servicios y controladores.
-- Módulos: auth, users, categories, suppliers, products, movements, alerts, indicators, dashboard, reports e **ia**.
+- Módulos: auth, users, **establishments**, categories, suppliers, products, movements, alerts, indicators, dashboard, reports e **ia**.
+- Contexto de tenant con `AsyncLocalStorage`, GUCs por transacción y `tenantPredicate` en los repositorios; `fn_app_is_system()` queda reservado a tareas internas.
 - CSV con BOM y PDF generados en memoria, sin escribir en disco.
 
 ## FASE 4 — Frontend React
@@ -46,24 +49,25 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 
 - SPA con React Router, Axios relativo a `/api`, contexto de autenticación y notificaciones.
 - Páginas de panel, productos, movimientos, alertas, indicadores, reportes, catálogos, usuarios y perfil.
+- Nueva página **Administración general** (`/superadmin`) para establecimientos y cuentas, con acceso restringido por permiso.
 - Diseño responsive y gráficas con Recharts.
-- Nueva página **Asistente IA** (`/ia`) usando componentes y estilos existentes.
 
 ## FASE 5 — Pruebas y verificación
 
 **Estado:** COMPLETADA
 
-- Backend: Vitest + Supertest, 34 pruebas en 5 archivos.
-- Frontend: Playwright Core con Microsoft Edge, 10 comprobaciones E2E.
-- Verificación contra la base de datos de prueba disponible en el entorno; no se usaron mocks de BD.
+- Backend: Vitest + Supertest. Última ronda: 8 archivos, 99/99 pruebas superadas contra fixture local.
+- Las pruebas de integración solo escriben en una base local/desechable; las credenciales se leen de variables `TEST_*` y `E2E_*`.
+- Verificación local de lint y build sin errores; migraciones 005–008 aplicadas a Neon tras validación con rollback; despliegue pendiente.
 
 ## FASE 6 — Documentación
 
 **Estado:** COMPLETADA
 
 - README, instalación, arquitectura, base de datos, API, seguridad, alcance, manual de usuario y resultados reales de pruebas actualizados.
-- Eliminadas las referencias a PostgreSQL local, Docker, imágenes/compose y entornos múltiples.
-- Documentado el modelo IA local y la decisión que lo incorpora.
+- Eliminadas las referencias a PostgreSQL local, Docker, imágenes/compose y entornos múltiples como dependencia del proyecto.
+- Documentadas la arquitectura multiempresa, las migraciones 005–008, el contexto de tenant y los permisos del superadministrador.
+- Documentado el modelo IA local para insights y el chat con OpenRouter gratuito.
 
 ## FASE 7 — Refactorización a Neon y Vercel
 
@@ -86,7 +90,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Serie diaria a partir de movimientos OUT reales; suavizado exponencial con tendencia atenuada.
 - Stock de seguridad, punto de pedido, días de cobertura, riesgo, prioridad y narrativa resumida.
 - Detección de picos atípicos mediante desviación estándar.
-- Sin proveedores externos, sin `API_KEY` y sin envío de datos: todo se calcula en backend.
+- Los insights son locales y deterministas: sin proveedores externos en este endpoint, sin `API_KEY` y sin envío de datos.
 - Interfaz `/ia` integrada en menú, topbar y ruta protegida.
 
 ## FASE 9 — Reportes PDF y copiloto conversacional
@@ -97,46 +101,65 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - A4 horizontal automático cuando hay 8+ columnas o 3+ columnas monetarias; resúmenes útiles por reporte; mismo formato COP/entero en PDF, CSV y vista previa.
 - `AiInsightsPage.jsx` convertida en copiloto: resumen, recomendaciones, chat con historial, indicador de progreso, tablas pequeñas, preguntas rápidas, nueva conversación y consentimiento explícito antes de enviar datos agregados.
 - Backend IA: `ai-chat.service.js` con intents, presupuesto determinista, validación de modelo gratuito (`openrouter/free`, `provider.max_price` en cero, costo 0 y modelo `:free`), timeout, `max_tokens`, `reasoning.effort: low`, límite por usuario y aviso exacto de IA fuera de servicio en 402/429/timeout/errores de proveedor.
-- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave no se envían datos y el chat informa que la IA está temporalmente fuera de servicio. No hay variables `VITE_` con secretos ni modelos de pago/fallbacks.
+- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave no se envían datos y el chat informa que la IA está temporalmente fuera de servicio. No hay variables `VITE_` con secretos ni modelos de pago o respuestas locales como fallback. El contexto es agregado del tenant y nunca contiene SQL ni secretos.
+
+## FASE 10 — Arquitectura multiempresa
+
+**Estado:** COMPLETADA
+
+- `SUPERADMINISTRADOR` global con panel `/superadmin`, establecimientos aislados y usuarios por establecimiento; gestión de cuentas exclusiva del superadmin.
+- Endpoints `/api/establishments` (CRUD, `active`, `users`, `stats`, `with-admin`) y `/api/users` (filtros por establecimiento y reset de contraseña), con rutas y permisos confirmados en el código.
+- JWT con `pv`/`est`, validación de usuario real, `password_version`, establecimiento activo y revocación; `AsyncLocalStorage` + GUCs por transacción; RLS/FORCE RLS y predicados SQL explícitos por repositorio; `fn_app_is_system()` como único bypass.
+- Migraciones 005–008 con base multiempresa, FK compuestas, defaults desde GUC y endurecimiento de RLS: el superadmin sin inventario, validación de tenant en `fn_register_movement()` y FK movimientos-usuario condicionada a datos consistentes.
+- `users.email` único global; código de producto, nombre de categoría, NIT de proveedor y `source_key` únicos por establecimiento. Registros comerciales antiguos al establecimiento 1; `users` en `NULL` hasta asignación explícita.
+- Seed demo deshabilitado y sin credenciales demo; verificación con fixture local y variables `TEST_*`/`E2E_*`.
 
 ## Resultados reales finales
 
+La última ronda de verificación se resume en las tres primeras filas; el resto corresponde a comprobaciones de fases anteriores y se conserva como histórico.
+
 | Comprobación | Resultado |
 | --- | --- |
-| `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas |
-| `npm run lint` | backend y frontend sin errores ni advertencias |
-| `npm test` con base de datos de verificación | 7 archivos, 70/70 pruebas, 3,38 s |
-| `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras |
-| `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` |
-| `npm run build` | correcto, 2107 módulos, 9,03 s, CSS 33,87 kB, chunks de React/Recharts/iconos separados |
-| `npm run dev` | migraciones sin cambios, API y Vite listos, `/health` 200, navegador abierto en `http://localhost:5173` |
-| E2E en desarrollo | 14/14 comprobaciones con clave real, incluye respuestas de OpenRouter, historial, nueva conversación y descarga PDF; sin errores de consola |
-| E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil |
-| E2E de pestañas de movimientos | 10/10 comprobaciones: una sola pestaña activa, cambios repetidos, selección de productos, borrado de cantidades, stock, historial, alertas y responsive |
-| E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola |
-| Reportes PDF reales | 10/10 en `OK`: 1–8 páginas por reporte, fechas `dd/mm/aaaa`, COP sin decimales, 0 solapamientos |
-| Estrés de PDFs | 250/600/120/300 filas, hasta 101 páginas, encabezados repetidos, 0 solapamientos, sin escribir en BD |
-| Copiloto / OpenRouter | sin respuestas locales; sin clave o ante errores muestra IA fuera de servicio; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago se rechazan; `reasoning.effort: low` y reintento gratuito si el contenido sale vacío; 6/6 llamadas auténticas consecutivas con modelos `:free` y costo 0; 0 secretos en frontend |
+| `npm run lint` | 0 errores y 0 advertencias en backend y frontend |
+| `npm test` con fixture local | 8 archivos, 99/99 pruebas OK |
+| `npm run build` | correcto, 2108 módulos, 9,57 s |
+| `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas (ronda anterior) |
+| `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras (ronda anterior) |
+| `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` (ronda anterior) |
+| `npm run dev` | arranque comprobado en ronda anterior; migraciones 005–008 aplicadas a Neon con autorización |
+| E2E en desarrollo | 14/14 comprobaciones con credenciales de entorno, incluye respuestas de OpenRouter, historial, nueva conversación y descarga PDF (ronda anterior) |
+| E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil (ronda anterior) |
+| E2E de pestañas de movimientos | 10/10 comprobaciones: una sola pestaña activa, cambios repetidos, selección de productos, borrado de cantidades, stock, historial, alertas y responsive (ronda anterior) |
+| E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola (ronda anterior) |
+| Reportes PDF reales | 10/10 en `OK`: 1–8 páginas por reporte, fechas `dd/mm/aaaa`, COP sin decimales, 0 solapamientos (ronda anterior) |
+| Estrés de PDFs | 250/600/120/300 filas, hasta 101 páginas, encabezados repetidos, 0 solapamientos, sin escribir en BD (ronda anterior) |
+| Copiloto / OpenRouter | sin respuestas locales ni modelos de pago como fallback; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago se rechazan; `reasoning.effort: low` y reintento gratuito si el contenido sale vacío; llamadas auténticas con modelos `:free` y costo 0; 0 secretos en frontend |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
-| Build del servicio frontend | `npm run build --workspace=frontend` correcto, 2107 módulos, 9,03 s |
+| Build del servicio frontend | `npm run build --workspace=frontend` correcto en ronda anterior |
 
-La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos.
+La corrección global de campos numéricos sustituyó los 9 inputs `type="number"` por `IntegerInput` y `CurrencyInput`, reforzó los esquemas Zod con enteros estrictos y unificó el formato COP en tablas, dashboard, indicadores, vista previa de reportes, CSV y PDF. No se modificaron migraciones ni columnas de base de datos en esa corrección.
 
-La corrección del borrado añadió `parseCurrencyEditing` para aceptar estados intermedios sin restaurar el valor anterior, movió la validación de rango a `blur`/submit y corrigió `digitsOnly` para conservar solo la parte entera de los valores `numeric` de PostgreSQL (`1250000.00` → `1250000`). Los productos creados en el E2E numérico se eliminaron al finalizar.
+La corrección del borrado añadió `parseCurrencyEditing` para aceptar estados intermedios sin restaurar el valor anterior, movió la validación de rango a `blur`/submit y corrigió `digitsOnly` para conservar solo la parte entera de los valores `numeric` de PostgreSQL (`1250000.00` → `1250000`).
 
-Se corrigió la lógica de pestañas de `MovementsPage.jsx`: el formulario de salida estaba dentro de la rama `tab === 'in'` y faltaba la rama `tab === 'out'`. Ahora `in`, `out` e `history` se renderizan condicionalmente de forma independiente, con el indicador azul controlado por el mismo estado. Se añadió `.movement-form` para centrar cada formulario sin duplicarlo y `npm run test:movements-e2e` con 10 comprobaciones reales en navegador, incluyendo entrada/salida, persistencia del stock, historial, alertas y responsive.
+Se corrigió la lógica de pestañas de `MovementsPage.jsx`: el formulario de salida estaba dentro de la rama `tab === 'in'` y faltaba la rama `tab === 'out'`. Ahora `in`, `out` e `history` se renderizan condicionalmente de forma independiente, con el indicador azul controlado por el mismo estado. Se añadió `.movement-form` para centrar cada formulario sin duplicarlo y `npm run test:movements-e2e` con comprobaciones reales en navegador.
 
-La verificación original con base de datos usó el PostgreSQL de prueba ya existente en `127.0.0.1:55432` como fixture temporal. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron.
+La verificación actual usa un fixture PostgreSQL local desechable. Ese motor **no es dependencia del proyecto** y sus datos no se eliminaron de forma permanente. Las pruebas toman sus credenciales de variables `TEST_*`/`E2E_*`; no hay cuentas ni contraseñas de demostración en documentación, código ni tests.
 
-Posteriormente el usuario configuró un `.env` apuntando a Neon. No se ejecutaron migraciones allí. Al correr `npm test` contra esa base sin datos demo, el resultado fue 4 archivos OK y 1 fallido (`api.test.js`, login demo 401); 20 pruebas pasaron y 14 se omitieron. Las pruebas de alertas y métricas crearon productos temporales y los limpiaron.
+## Pendientes
+
+- Despliegue del código multiempresa a Vercel: autorizado por el propietario, pero bloqueado por falta de CLI/sesión autenticada; hasta entonces la versión anterior no entiende los GUC/RLS y puede quedar incompatible con el esquema migrado.
+- Alta de usuarios operativos del establecimiento 1 desde `/superadmin` (la cuenta heredada quedó como superadministrador global y sin tenant).
+- Verificación funcional contra Neon ya migrado; configuración de `OPENROUTER_API_KEY` solo en el servicio backend y rotación de la clave expuesta en una conversación anterior.
 
 ## Limitaciones verificadas
 
-- No se ejecutaron migraciones en la Neon del usuario ni se cargó el seed allí.
-- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados. `OPENROUTER_API_KEY` debe crearse en el entorno del servicio backend; no se activó facturación ni se usó un modelo de pago.
-- La clave `sk-or-v1-…` mencionada en la conversación no se guardó ni se repitió; debe rotarse antes de usarla.
-- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`, con `OPENROUTER_API_KEY=` vacía.
+- No se cargó el seed en Neon; el seed está deshabilitado. Las migraciones 005–008 sí se ejecutaron allí con autorización y se verificó la conservación de usuarios, categorías, proveedores, productos y movimientos.
+- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados. No se activó facturación ni se usó un modelo de pago.
+- La clave de OpenRouter mencionada en una conversación anterior no se guardó ni se repitió; debe rotarse antes de usarla.
+- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`, con la clave de OpenRouter vacía.
 
 ## Estado final
 
-La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Incluye los 10 reportes PDF rediseñados, el copiloto conversacional con modelo gratuito de OpenRouter (con motor local como respaldo y fuente de cifras) y los campos numéricos/monetarios estandarizados con validación backend estricta. El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET` y, de forma opcional, `OPENROUTER_API_KEY` ya rotada en Vercel; ejecutar `npm install` y `npm run dev`, y desplegar un único repositorio en Vercel con `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512` en el servicio backend.
+La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Incluye la arquitectura multiempresa con panel `/superadmin`, los 10 reportes PDF rediseñados, los insights deterministas locales y el copiloto conversacional con modelo gratuito de OpenRouter como **única** fuente del texto del chat (sin fallback local ni de pago), además de los campos numéricos/monetarios estandarizados con validación backend estricta.
+
+El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET` y, de forma opcional, `OPENROUTER_API_KEY` ya rotada en Vercel; ejecutar `npm install` y `npm run dev`; las migraciones 005–008 ya están aplicadas en Neon; crear establecimientos y cuentas desde `/superadmin`; y desplegar un único repositorio en Vercel con `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512` en el servicio backend. No existen credenciales demo: las pruebas usan variables de entorno `TEST_*`/`E2E_*` y un fixture local.

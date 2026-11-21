@@ -8,12 +8,29 @@ export const authApi = {
 };
 
 export const usersApi = {
+  options: () => api.get('/users/options').then(unwrap),
   list: (params) => api.get('/users', { params }).then(unwrap),
   get: (id) => api.get(`/users/${id}`).then(unwrap),
   create: (data) => api.post('/users', data).then(unwrap),
   update: (id, data) => api.patch(`/users/${id}`, data).then(unwrap),
   setActive: (id, active) => api.patch(`/users/${id}/active`, { active }).then(unwrap),
   resetPassword: (id, password) => api.patch(`/users/${id}/password`, { password }).then(unwrap),
+};
+
+export const superadminApi = {
+  stats: () => api.get('/establishments/stats').then(unwrap),
+  establishments: (params) => api.get('/establishments', { params }).then(unwrap),
+  establishment: (id) => api.get(`/establishments/${id}`).then(unwrap),
+  establishmentUsers: (id) => api.get(`/establishments/${id}/users`).then(unwrap),
+  createEstablishment: (data) => api.post('/establishments', data).then(unwrap),
+  createEstablishmentWithAdmin: (data) => api.post('/establishments/with-admin', data).then(unwrap),
+  updateEstablishment: (id, data) => api.patch(`/establishments/${id}`, data).then(unwrap),
+  setEstablishmentActive: (id, active) => api.patch(`/establishments/${id}/active`, { active }).then(unwrap),
+  allUsers: (params) => api.get('/users', { params }).then(unwrap),
+  createUser: (data) => api.post('/users', data).then(unwrap),
+  updateUser: (id, data) => api.patch(`/users/${id}`, data).then(unwrap),
+  setUserActive: (id, active) => api.patch(`/users/${id}/active`, { active }).then(unwrap),
+  resetUserPassword: (id, password) => api.patch(`/users/${id}/password`, { password }).then(unwrap),
 };
 
 export const categoriesApi = {

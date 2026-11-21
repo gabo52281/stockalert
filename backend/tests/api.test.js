@@ -2,10 +2,16 @@
 
 const request = require('supertest');
 const app = require('../src/app');
-const { query } = require('../src/config/database');
+const { query, runAsSystem } = require('../src/config/database');
 const { nextCode } = require('./helpers');
 
-const describeDatabase = process.env.DATABASE_URL ? describe : describe.skip;
+const TEST_CREDENTIALS = Boolean(
+  process.env.TEST_ADMIN_EMAIL && process.env.TEST_ADMIN_PASSWORD
+  && process.env.TEST_CONSULTA_EMAIL && process.env.TEST_CONSULTA_PASSWORD,
+);
+const describeDatabase = process.env.DATABASE_URL && TEST_CREDENTIALS
+  ? describe
+  : describe.skip;
 
 let adminToken;
 let consultaToken;
@@ -21,20 +27,24 @@ async function login(email, password) {
 
 if (process.env.DATABASE_URL) {
   beforeAll(async () => {
-    const admin = await login('admin@stockalert.local', 'Demo1234!');
+    const admin = await login(process.env.TEST_ADMIN_EMAIL, process.env.TEST_ADMIN_PASSWORD);
     expect(admin.status).toBe(200);
     adminToken = admin.body.data.token;
 
-    const consulta = await login('consulta@stockalert.local', 'Demo1234!');
+    const consulta = await login(process.env.TEST_CONSULTA_EMAIL, process.env.TEST_CONSULTA_PASSWORD);
     expect(consulta.status).toBe(200);
     consultaToken = consulta.body.data.token;
   });
 
   afterAll(async () => {
     if (productId) {
-      await query('DELETE FROM inventory_movements WHERE product_id = $1', [productId]);
-      await query('DELETE FROM product_alert_settings WHERE product_id = $1', [productId]);
-      await query('DELETE FROM products WHERE id = $1', [productId]);
+      await runAsSystem(() => query(
+        'DELETE FROM inventory_movements WHERE product_id = $1', [productId],
+      ));
+      await runAsSystem(() => query(
+        'DELETE FROM product_alert_settings WHERE product_id = $1', [productId],
+      ));
+      await runAsSystem(() => query('DELETE FROM products WHERE id = $1', [productId]));
     }
   });
 }
@@ -47,7 +57,7 @@ describeDatabase('API REST de STOCKALERT', () => {
   });
 
   it('rechaza credenciales incorrectas', async () => {
-    const response = await login('admin@stockalert.local', 'contraseña-erronea');
+    const response = await login(process.env.TEST_ADMIN_EMAIL, 'contraseña-erronea');
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('UNAUTHORIZED');
   });

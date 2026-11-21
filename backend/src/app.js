@@ -15,6 +15,7 @@ const asyncHandler = require('./utils/asyncHandler');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const usersRoutes = require('./modules/users/users.routes');
+const establishmentsRoutes = require('./modules/establishments/establishments.routes');
 const categoriesRoutes = require('./modules/categories/categories.routes');
 const suppliersRoutes = require('./modules/suppliers/suppliers.routes');
 const productsRoutes = require('./modules/products/products.routes');
@@ -54,6 +55,7 @@ app.get('/health', asyncHandler(async (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/establishments', establishmentsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/products', productsRoutes);

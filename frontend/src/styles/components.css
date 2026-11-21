@@ -109,6 +109,12 @@
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 0.8rem; color: var(--navy-700);
+  margin-bottom: 16px;
+}
+.info-box--warning {
+  background: var(--orange-50, #fff7ed);
+  border-color: var(--orange-200, #fed7aa);
+  color: var(--orange-800, #9a3412);
 }
 
 /* Tables ------------------------------------------------------------------ */

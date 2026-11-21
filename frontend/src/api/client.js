@@ -5,7 +5,9 @@ const TOKEN_KEY = 'stockalert_token';
 const api = axios.create({
   // Relativo: funciona igual con el proxy de Vite que con Vercel (mismo dominio).
   baseURL: '/api',
-  timeout: 20000,
+  // El proveedor gratuito puede tardar más de 20 s en responder; el backend
+  // aplica su propio timeout y devuelve un aviso antes que la SPA cancele.
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 

@@ -2,10 +2,9 @@
 
 /**
  * Matriz de permisos. Se valida SIEMPRE en backend; el frontend solo oculta controles.
- * Formato: modulo:accion
+ * Formato: modulo:accion. Los permisosEstablishment son globales y no dan acceso
+ * al inventario privado de los negocios.
  */
-
-const ALL = ['*'];
 
 const INVENTORY_MANAGER = [
   'products:read', 'products:create', 'products:update', 'products:deactivate', 'products:delete',
@@ -24,17 +23,28 @@ const READ_ONLY = [
   'profile:read', 'profile:update',
 ];
 
+const SUPER_ADMIN = [
+  'establishments:read', 'establishments:create', 'establishments:update', 'establishments:activate',
+  'users:read', 'users:create', 'users:update', 'users:activate', 'users:reset-password',
+  'admin-stats:read',
+  'profile:read', 'profile:update',
+];
+
 const PERMISSIONS = {
-  ADMINISTRADOR: ALL,
+  SUPERADMINISTRADOR: SUPER_ADMIN,
+  ADMINISTRADOR: INVENTORY_MANAGER,
   ENCARGADO_INVENTARIO: INVENTORY_MANAGER,
   CONSULTA: READ_ONLY,
 };
 
 const ROLE_LABELS = {
+  SUPERADMINISTRADOR: 'Superadministrador',
   ADMINISTRADOR: 'Administrador',
   ENCARGADO_INVENTARIO: 'Encargado de inventario',
   CONSULTA: 'Consulta',
 };
+
+const GLOBAL_ROLES = ['SUPERADMINISTRADOR'];
 
 function permissionsFor(role) {
   return PERMISSIONS[role] || [];
@@ -45,4 +55,10 @@ function can(role, permission) {
   return list.includes('*') || list.includes(permission);
 }
 
-module.exports = { PERMISSIONS, ROLE_LABELS, permissionsFor, can };
+function isSuperAdmin(role) {
+  return GLOBAL_ROLES.includes(role);
+}
+
+module.exports = {
+  PERMISSIONS, ROLE_LABELS, GLOBAL_ROLES, permissionsFor, can, isSuperAdmin,
+};

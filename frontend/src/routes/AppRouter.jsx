@@ -12,6 +12,7 @@ import IndicatorsPage from '../pages/IndicatorsPage.jsx';
 import AiInsightsPage from '../pages/AiInsightsPage.jsx';
 import ReportsPage from '../pages/ReportsPage.jsx';
 import UsersPage from '../pages/UsersPage.jsx';
+import SuperadminPage from '../pages/SuperadminPage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ForbiddenPage from '../pages/ForbiddenPage.jsx';
@@ -34,7 +35,8 @@ export default function AppRouter() {
         <Route path="indicadores" element={<Guard permission="indicators:read"><IndicatorsPage /></Guard>} />
         <Route path="ia" element={<Guard permission="indicators:read"><AiInsightsPage /></Guard>} />
         <Route path="reportes" element={<Guard permission="reports:read"><ReportsPage /></Guard>} />
-        <Route path="usuarios" element={<Guard permission="profile:read"><UsersPage /></Guard>} />
+        <Route path="superadmin" element={<Guard permission="users:read"><SuperadminPage /></Guard>} />
+        <Route path="usuarios" element={<Guard permission="users:read"><UsersPage /></Guard>} />
         <Route path="perfil" element={<Guard permission="profile:read"><ProfilePage /></Guard>} />
         <Route path="acceso-denegado" element={<ForbiddenPage />} />
         <Route path="404" element={<NotFoundPage />} />

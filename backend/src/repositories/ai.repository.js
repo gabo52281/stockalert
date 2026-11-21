@@ -1,10 +1,12 @@
 'use strict';
 
 const { query } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 
 /**
- * Datos mínimos y reales que alimentan el modelo local de IA de inventario.
- * Toda la lógica predictiva vive en ai.service.js para poder probarla sin BD.
+ * Señales mínimas y reales del establecimiento autenticado. Ninguna consulta
+ * del copiloto puede leer datos de otra empresa, incluso si el rol de conexión
+ * a PostgreSQL omite RLS.
  */
 async function loadInventorySignals(days) {
   const [products, movements] = await Promise.all([
@@ -12,7 +14,7 @@ async function loadInventorySignals(days) {
       SELECT p.id, p.code, p.name, p.category_name, p.supplier_name,
              p.quantity, p.min_stock, p.purchase_price, p.sale_price, p.alert_level
         FROM v_product_inventory p
-       WHERE p.active = TRUE
+       WHERE ${tenantPredicate('p')} AND p.active = TRUE
        ORDER BY p.name
     `),
     query(`
@@ -20,7 +22,8 @@ async function loadInventorySignals(days) {
              to_char(date_trunc('day', m.movement_date)::date, 'YYYY-MM-DD') AS day,
              SUM(m.quantity)::numeric AS units
         FROM inventory_movements m
-       WHERE m.type = 'OUT'
+       WHERE ${tenantPredicate('m')}
+         AND m.type = 'OUT'
          AND m.movement_date >= now() - ($1::int || ' days')::interval
        GROUP BY m.product_id, day
        ORDER BY day
@@ -37,7 +40,8 @@ async function loadMovementTotals(days) {
             COUNT(m.id)::int AS movements,
             COALESCE(SUM(m.quantity), 0)::numeric AS units
        FROM inventory_movements m
-      WHERE m.movement_date >= now() - ($1::int || ' days')::interval
+      WHERE ${tenantPredicate('m')}
+        AND m.movement_date >= now() - ($1::int || ' days')::interval
       GROUP BY m.type`,
     [days],
   );

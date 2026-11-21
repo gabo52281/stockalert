@@ -6,8 +6,8 @@ const { query } = require('../config/database');
 async function writeAudit(req, action, entity, entityId, details = {}) {
   try {
     await query(
-      `INSERT INTO audit_log (user_id, action, entity, entity_id, details, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO audit_log (establishment_id, user_id, action, entity, entity_id, details, ip_address)
+       VALUES (fn_app_establishment_id(), $1, $2, $3, $4, $5, $6)`,
       [
         req.user?.id || null,
         action,

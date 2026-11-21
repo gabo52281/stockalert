@@ -1,6 +1,6 @@
 'use strict';
 
-const { query } = require('../src/config/database');
+const { query, runAsSystem } = require('../src/config/database');
 const { createProduct, move, view, cleanup } = require('./helpers');
 
 const describeDatabase = process.env.DATABASE_URL ? describe : describe.skip;
@@ -71,9 +71,9 @@ describeDatabase('motor de alertas (v_product_inventory)', () => {
 });
 
 async function setPreventivePercentage(productId, percentage) {
-  await query(
+  await runAsSystem(() => query(
     `INSERT INTO product_alert_settings (product_id, preventive_percentage, analysis_window_days, min_history_days)
      VALUES ($1,$2,30,7)`,
     [productId, percentage],
-  );
+  ), 1);
 }

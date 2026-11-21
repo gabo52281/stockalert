@@ -1,16 +1,18 @@
--- STOCKALERT · Datos DEMOSTRATIVOS
--- Solo para entornos de desarrollo/pruebas. Ejecutar después de las migraciones.
--- Todos los movimientos usan fn_register_movement, por lo que el stock final
--- es consecuencia del historial y no un valor escrito directamente.
+-- STOCKALERT · Datos DEMOSTRATIVOS (REFERENCIA HISTÓRICA)
+-- NO EJECUTAR: npm run seed está deshabilitado en la arquitectura multiempresa.
+-- Este archivo se conserva solo como registro del formato anterior; no crea
+-- usuarios, contraseñas ni datos en bases 005-008 y no debe copiarse a producción.
+-- Todos los movimientos usaban fn_register_movement, por lo que el stock final
+-- era consecuencia del historial y no un valor escrito directamente.
 
 -- ---------------------------------------------------------------------------
 -- Usuarios demo (contraseña hasheada en runtime por seed.js)
 -- ---------------------------------------------------------------------------
 INSERT INTO users (name, email, password_hash, role_id, active) VALUES
-  ('Admin Demo',        'admin@stockalert.local',      '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'),        TRUE),
-  ('Encargado Demo',    'encargado@stockalert.local',  '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'ENCARGADO_INVENTARIO'), TRUE),
-  ('Consulta Demo',     'consulta@stockalert.local',   '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'CONSULTA'),            TRUE),
-  ('Usuario Inactivo',  'inactivo@stockalert.local',   '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'CONSULTA'),            FALSE)
+  ('Admin Demo',        'admin@ejemplo.invalid',      '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'),        TRUE),
+  ('Encargado Demo',    'encargado@ejemplo.invalid',  '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'ENCARGADO_INVENTARIO'), TRUE),
+  ('Consulta Demo',     'consulta@ejemplo.invalid',   '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'CONSULTA'),            TRUE),
+  ('Usuario Inactivo',  'inactivo@ejemplo.invalid',   '{{DEMO_HASH}}', (SELECT id FROM roles WHERE name = 'CONSULTA'),            FALSE)
 ON CONFLICT (email) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
@@ -72,7 +74,7 @@ ON CONFLICT (product_id) DO NOTHING;
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
-  v_user      BIGINT := (SELECT id FROM users WHERE email = 'encargado@stockalert.local');
+  v_user      BIGINT := (SELECT id FROM users WHERE email = 'encargado@ejemplo.invalid');
   v_supplier  BIGINT := (SELECT id FROM suppliers WHERE tax_id = '900111111-1');
   spec        RECORD;
   day_row     RECORD;
@@ -137,5 +139,5 @@ END $$;
 -- Registro de auditoría de la carga demo
 INSERT INTO audit_log (user_id, action, entity, details)
 SELECT id, 'SEED_DEMO_DATA', 'database', '{"scope":"development","warning":"datos demostrativos"}'
-  FROM users WHERE email = 'admin@stockalert.local'
+  FROM users WHERE email = 'admin@ejemplo.invalid'
 ON CONFLICT DO NOTHING;

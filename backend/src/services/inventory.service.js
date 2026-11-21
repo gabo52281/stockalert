@@ -1,20 +1,29 @@
 'use strict';
 
 const { transaction } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 const movementsRepository = require('../repositories/movements.repository');
 const productsRepository = require('../repositories/products.repository');
-const catalogsRepository = require('../repositories/catalogs.repository');
 const { writeAudit } = require('../middlewares/audit');
 const ApiError = require('../utils/ApiError');
 
 async function validateInput(client, data, type) {
-  const { rows } = await client.query('SELECT id, active FROM products WHERE id = $1', [data.productId]);
+  const { rows } = await client.query(
+    `SELECT id, active FROM products
+      WHERE id = $1 AND establishment_id = fn_app_establishment_id()`,
+    [data.productId],
+  );
   if (!rows.length) throw ApiError.notFound('Producto no encontrado');
   if (!rows[0].active) throw ApiError.conflict('El producto está inactivo', 'PRODUCT_INACTIVE');
 
   if (type === 'IN' && data.supplierId) {
-    const supplier = await catalogsRepository.findSupplierById(data.supplierId);
-    if (!supplier) throw ApiError.badRequest('El proveedor indicado no existe', 'INVALID_SUPPLIER');
+    const { rows: suppliers } = await client.query(
+      `SELECT id FROM suppliers WHERE id = $1 AND ${tenantPredicate('suppliers')}`,
+      [data.supplierId],
+    );
+    if (!suppliers.length) {
+      throw ApiError.badRequest('El proveedor indicado no existe', 'INVALID_SUPPLIER');
+    }
   }
 }
 
@@ -30,11 +39,12 @@ async function registerMovement(data, user, req, type) {
 
     const movementResult = await client.query(
       `SELECT ${movementsRepository.MOVEMENT_COLUMNS} ${movementsRepository.FROM}
-        WHERE m.id = $1`,
+        ${movementsRepository.whereWithTenant(['m.id = $1'])}`,
       [movementId],
     );
     const productResult = await client.query(
-      `SELECT ${productsRepository.COLUMNS} FROM v_product_inventory WHERE id = $1`,
+      `SELECT ${productsRepository.COLUMNS} FROM v_product_inventory
+        WHERE id = $1 AND ${tenantPredicate('v_product_inventory')}`,
       [data.productId],
     );
 

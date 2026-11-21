@@ -13,7 +13,7 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 
 const env = require('../config/env');
-const { query, closePool } = require('../config/database');
+const { query, closePool, runAsSystem } = require('../config/database');
 
 (async () => {
   try {
@@ -43,16 +43,19 @@ const { query, closePool } = require('../config/database');
 
   try {
     const hash = await bcrypt.hash(password, 12);
-    const { rows } = await query(
-      `INSERT INTO users (name, email, password_hash, role_id, active)
-       VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'), TRUE)
+    const establishmentId = Number(process.env.SEED_ADMIN_ESTABLISHMENT_ID || 1);
+    const { rows } = await runAsSystem(() => query(
+      `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id, must_change_password)
+       VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'), TRUE, $4, TRUE)
        ON CONFLICT (email) DO UPDATE
          SET name = EXCLUDED.name,
              password_hash = EXCLUDED.password_hash,
+             password_version = users.password_version + 1,
+             must_change_password = TRUE,
              active = TRUE
-       RETURNING id, email`,
-      [name, email.toLowerCase(), hash],
-    );
+       RETURNING id, email, establishment_id`,
+      [name, email.toLowerCase(), hash, establishmentId],
+    ));
     console.log(`Administrador listo: ${rows[0].email} (id ${rows[0].id})`);
   } catch (error) {
     console.error('No se pudo crear el administrador:', error.message);

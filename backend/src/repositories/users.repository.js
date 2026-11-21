@@ -1,13 +1,16 @@
 'use strict';
 
 const { query } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 
 const COLUMNS = `
-  u.id, u.name, u.email, u.active, u.created_at, u.updated_at,
+  u.id, u.name, u.email, u.active, u.establishment_id,
+  e.name AS establishment_name, u.created_at, u.updated_at,
+  u.must_change_password,
   r.name AS role, r.description AS role_description
 `;
 
-async function findAll({ q, search, role, active, limit, offset }) {
+async function findAll({ q, search, role, active, establishmentId, limit, offset }) {
   const where = [];
   const values = [];
   const term = q || search;
@@ -24,25 +27,47 @@ async function findAll({ q, search, role, active, limit, offset }) {
     values.push(active);
     where.push(`u.active = $${values.length}`);
   }
+  if (establishmentId !== undefined && establishmentId !== null && establishmentId !== '') {
+    values.push(establishmentId);
+    where.push(`u.establishment_id = $${values.length}`);
+  }
 
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const from = 'FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN establishments e ON e.id = u.establishment_id';
   const [rows, count] = await Promise.all([
     query(
-      `SELECT ${COLUMNS} FROM users u JOIN roles r ON r.id = u.role_id
+      `SELECT ${COLUMNS} ${from}
        ${clause} ORDER BY u.id LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset],
     ),
-    query(`SELECT count(*)::int AS total FROM users u JOIN roles r ON r.id = u.role_id ${clause}`, values),
+    query(`SELECT count(*)::int AS total ${from} ${clause}`, values),
   ]);
 
   return { rows: rows.rows, total: count.rows[0].total };
 }
 
+/** Nombres del propio establecimiento para filtros de movimientos/reportes. */
+async function findTenantOptions() {
+  const { rows } = await query(
+    `SELECT u.id, u.name
+       FROM users u
+      WHERE u.active AND ${tenantPredicate('u')}
+      ORDER BY u.name, u.id`,
+  );
+  return rows;
+}
+
 async function findById(id) {
   const { rows } = await query(
-    `SELECT ${COLUMNS} FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1`,
+    `SELECT ${COLUMNS} FROM users u JOIN roles r ON r.id = u.role_id
+      LEFT JOIN establishments e ON e.id = u.establishment_id WHERE u.id = $1`,
     [id],
   );
+  return rows[0] || null;
+}
+
+async function findByEmailForAuth(id) {
+  const { rows } = await query('SELECT id, email, password_hash FROM users WHERE id = $1', [id]);
   return rows[0] || null;
 }
 
@@ -55,18 +80,23 @@ async function findByEmail(email) {
   return rows[0] || null;
 }
 
-async function create({ name, email, passwordHash, role, active }) {
+async function create({
+  name, email, passwordHash, role, active, establishmentId,
+}) {
   const { rows } = await query(
-    `INSERT INTO users (name, email, password_hash, role_id, active)
-     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), $5)
-     RETURNING id, name, email, active, created_at`,
-    [name, email.toLowerCase(), passwordHash, role, active],
+    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id, must_change_password)
+     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), $5, $6, TRUE)
+     RETURNING id, name, email, active, establishment_id, created_at`,
+    [name, email.toLowerCase(), passwordHash, role, active, establishmentId ?? null],
   );
   return rows[0];
 }
 
 async function update(id, fields) {
-  const map = { name: 'name', email: 'email', role: 'role_id', active: 'active' };
+  const map = {
+    name: 'name', email: 'email', role: 'role_id', active: 'active',
+    establishmentId: 'establishment_id',
+  };
   const sets = [];
   const values = [id];
 
@@ -90,8 +120,15 @@ async function update(id, fields) {
   return findById(rows[0].id);
 }
 
-async function setPassword(id, hash) {
-  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, id]);
+async function setPassword(id, hash, options = {}) {
+  await query(
+    `UPDATE users
+        SET password_hash = $1,
+            password_version = password_version + 1,
+            must_change_password = $3
+      WHERE id = $2`,
+    [hash, id, options.mustChangePassword === true],
+  );
 }
 
 async function revokeToken(jti, userId, expiresAt) {
@@ -103,5 +140,5 @@ async function revokeToken(jti, userId, expiresAt) {
 }
 
 module.exports = {
-  findAll, findById, findByEmail, create, update, setPassword, revokeToken,
+  findAll, findTenantOptions, findById, findByEmail, findByEmailForAuth, create, update, setPassword, revokeToken,
 };

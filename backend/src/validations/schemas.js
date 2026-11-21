@@ -57,6 +57,7 @@ const userCreateSchema = z.object({
     password: z.string().min(8).max(100),
     role: z.enum(['ADMINISTRADOR', 'ENCARGADO_INVENTARIO', 'CONSULTA']),
     active: z.boolean().default(true),
+    establishmentId: id(),
   }),
 });
 
@@ -67,6 +68,7 @@ const userUpdateSchema = z.object({
     email: z.string().trim().email().max(180).optional(),
     role: z.enum(['ADMINISTRADOR', 'ENCARGADO_INVENTARIO', 'CONSULTA']).optional(),
     active: z.boolean().optional(),
+    establishmentId: id().optional(),
   }),
 });
 
@@ -283,12 +285,46 @@ const boolQuery = z.enum(['true', 'false'])
   .optional()
   .transform((value) => (value === undefined ? undefined : value === 'true'));
 
+const establishmentBody = z.object({
+  name: z.string().trim().min(2).max(180),
+  taxId: z.string().trim().max(40).nullable().optional(),
+  address: z.string().trim().max(255).nullable().optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  email: z.string().trim().email().max(180).nullable().optional(),
+  active: z.boolean().default(true),
+});
+
+const establishmentCreateSchema = z.object({ body: establishmentBody });
+const establishmentUpdateSchema = z.object({
+  params: z.object({ id: id() }),
+  body: establishmentBody.partial(),
+});
+const establishmentQuerySchema = z.object({
+  query: z.object({
+    ...pagination,
+    q: z.string().trim().max(120).optional(),
+    active: boolQuery,
+  }),
+});
+const establishmentIdSchema = z.object({ params: z.object({ id: id() }) });
+const establishmentWithAdminSchema = z.object({
+  body: z.object({
+    establishment: establishmentBody,
+    admin: z.object({
+      name: z.string().trim().min(2).max(120),
+      email: z.string().trim().email().max(180),
+      password: z.string().min(8).max(100),
+    }),
+  }),
+});
+
 const userQuerySchema = z.object({
   query: z.object({
     ...pagination,
     q: z.string().trim().max(120).optional(),
-    role: z.enum(['ADMINISTRADOR', 'ENCARGADO_INVENTARIO', 'CONSULTA']).optional(),
+    role: z.enum(['SUPERADMINISTRADOR', 'ADMINISTRADOR', 'ENCARGADO_INVENTARIO', 'CONSULTA']).optional(),
     active: boolQuery,
+    establishmentId: id().optional(),
   }),
 });
 
@@ -333,4 +369,9 @@ module.exports = {
   dashboardQuerySchema,
   aiQuerySchema,
   aiChatSchema,
+  establishmentCreateSchema,
+  establishmentUpdateSchema,
+  establishmentQuerySchema,
+  establishmentIdSchema,
+  establishmentWithAdminSchema,
 };

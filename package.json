@@ -2,7 +2,7 @@
   "name": "stockalert",
   "version": "1.0.0",
   "private": true,
-  "description": "Sistema web de gestión y control de inventarios con alertas preventivas e IA local",
+  "description": "Plataforma multiempresa de gestión de inventarios con alertas preventivas y copiloto IA vía OpenRouter gratuito",
   "workspaces": [
     "backend",
     "frontend"
@@ -22,7 +22,8 @@
     "migrate:down": "node backend/src/scripts/migrate.js down",
     "migrate:status": "node backend/src/scripts/migrate.js status",
     "seed": "node backend/src/scripts/seed.js",
-    "admin": "node backend/src/scripts/createAdmin.js"
+    "admin": "node backend/src/scripts/createAdmin.js",
+    "promote:superadmin": "node backend/src/scripts/promoteSuperadmin.js"
   },
   "engines": {
     "node": ">=20"

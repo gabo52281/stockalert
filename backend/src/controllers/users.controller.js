@@ -8,29 +8,37 @@ async function list(req, res) {
   const { rows, total } = await service.list({
     ...req.validated.query,
     ...pagination,
-  });
+  }, req.user);
   return ok(res, rows, buildMeta(total, pagination));
 }
 
+async function options(req, res) {
+  return ok(res, await service.options(req.user));
+}
+
 async function get(req, res) {
-  return ok(res, await service.get(req.validated.params.id));
+  return ok(res, await service.get(req.validated.params.id, req.user));
 }
 
 async function create(req, res) {
-  return ok(res, await service.create(req.validated.body), null, 201);
+  return ok(res, await service.create(req.validated.body, req.user), null, 201);
 }
 
 async function update(req, res) {
-  return ok(res, await service.update(req.validated.params.id, req.validated.body));
+  return ok(res, await service.update(req.validated.params.id, req.validated.body, req.user));
 }
 
 async function setActive(req, res) {
-  return ok(res, await service.setActive(req.validated.params.id, req.validated.body.active));
+  return ok(res, await service.setActive(
+    req.validated.params.id, req.validated.body.active, req.user,
+  ));
 }
 
 async function resetPassword(req, res) {
-  await service.resetPassword(req.validated.params.id, req.validated.body.password);
-  return ok(res, { message: 'Contraseña restablecida' });
+  await service.resetPassword(
+    req.validated.params.id, req.validated.body.password, req.user,
+  );
+  return ok(res, { message: 'Contraseña restablecida. El usuario deberá cambiarla al ingresar.' });
 }
 
-module.exports = { list, get, create, update, setActive, resetPassword };
+module.exports = { list, options, get, create, update, setActive, resetPassword };

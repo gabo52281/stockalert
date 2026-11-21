@@ -4,6 +4,13 @@ import { clearToken, hasToken, saveToken } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
+export function homePathFor(user) {
+  if (user?.mustChangePassword) return '/perfil';
+  if (user?.role === 'SUPERADMINISTRADOR') return '/superadmin';
+  if (user?.role === 'ENCARGADO_INVENTARIO') return '/movimientos';
+  return '/';
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,8 +37,10 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (credentials) => {
     const response = await authApi.login(credentials);
     saveToken(response.data.token);
-    setUser(response.data.user);
-    return response.data.user;
+    // /auth/me es la fuente de verdad para permisos y evita el bug post-login.
+    const profile = await authApi.me();
+    setUser(profile.data);
+    return profile.data;
   }, []);
 
   const logout = useCallback(async () => {
@@ -42,7 +51,6 @@ export function AuthProvider({ children }) {
 
   const hasPermission = useCallback((permission) => {
     if (!user) return false;
-    if (user.role === 'ADMINISTRADOR') return true;
     return Boolean(user.permissions?.includes(permission));
   }, [user]);
 
@@ -52,6 +60,8 @@ export function AuthProvider({ children }) {
     login,
     logout,
     hasPermission,
+    homePath: homePathFor(user),
+    isSuperAdmin: user?.role === 'SUPERADMINISTRADOR',
     isAdmin: user?.role === 'ADMINISTRADOR',
     isManager: user?.role === 'ENCARGADO_INVENTARIO',
     isReadOnly: user?.role === 'CONSULTA',

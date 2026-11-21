@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:5173';
+const EMAIL = process.env.E2E_EMAIL;
+const PASSWORD = process.env.E2E_PASSWORD;
+const HOME_PATH = process.env.E2E_HOME_PATH || '/';
+
+if (!EMAIL || !PASSWORD) {
+  console.error('Defina E2E_EMAIL y E2E_PASSWORD antes de ejecutar las pruebas E2E.');
+  process.exit(1);
+}
+
 const browser = await chromium.launch({
   channel: 'msedge',
   headless: true,
@@ -19,10 +28,10 @@ try {
   });
 
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
-  await page.getByPlaceholder('usuario@empresa.com').fill(process.env.E2E_EMAIL || 'admin@stockalert.local');
-  await page.locator('input[autocomplete="current-password"]').fill(process.env.E2E_PASSWORD || 'Demo1234!');
+  await page.getByPlaceholder('usuario@empresa.com').fill(EMAIL);
+  await page.locator('input[autocomplete="current-password"]').fill(PASSWORD);
   await page.getByRole('button', { name: 'Ingresar al sistema' }).click();
-  await page.waitForURL(`${BASE}/`, { timeout: 15000 });
+  await page.waitForURL((url) => url.pathname === HOME_PATH, { timeout: 15000 });
 
   await page.getByRole('link', { name: 'Movimientos' }).click();
   await page.locator('.tabs button').first().waitFor({ timeout: 15000 });

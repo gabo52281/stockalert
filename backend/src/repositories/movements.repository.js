@@ -1,6 +1,7 @@
 'use strict';
 
 const { query } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 
 const MOVEMENT_COLUMNS = `
   m.id, m.product_id, p.code AS product_code, p.name AS product_name,
@@ -13,11 +14,17 @@ const MOVEMENT_COLUMNS = `
 
 const FROM = `
   FROM inventory_movements m
-  JOIN products p ON p.id = m.product_id
-  JOIN users u ON u.id = m.user_id
-  LEFT JOIN suppliers s ON s.id = m.supplier_id
-  LEFT JOIN categories c ON c.id = p.category_id
+  JOIN products p ON p.id = m.product_id AND p.establishment_id = m.establishment_id
+  LEFT JOIN users u ON u.id = m.user_id
+    AND (u.establishment_id = m.establishment_id OR u.establishment_id IS NULL)
+  LEFT JOIN suppliers s ON s.id = m.supplier_id AND s.establishment_id = m.establishment_id
+  LEFT JOIN categories c ON c.id = p.category_id AND c.establishment_id = p.establishment_id
 `;
+
+/** Toda lectura de movimientos queda limitada al establecimiento validado. */
+function whereWithTenant(extra = []) {
+  return `WHERE ${[tenantPredicate('m'), ...extra].filter(Boolean).join(' AND ')}`;
+}
 
 /** Registro atómico usando la función PL/pgSQL con bloqueo de fila. */
 async function register(client, data) {
@@ -71,7 +78,7 @@ async function findAll(filters) {
     where.push(`m.movement_date <= $${values.length}`);
   }
 
-  const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const clause = whereWithTenant(where);
   const [rows, count] = await Promise.all([
     query(
       `SELECT ${MOVEMENT_COLUMNS} ${FROM} ${clause}
@@ -86,7 +93,7 @@ async function findAll(filters) {
 
 async function findById(id) {
   const { rows } = await query(
-    `SELECT ${MOVEMENT_COLUMNS} ${FROM} WHERE m.id = $1`,
+    `SELECT ${MOVEMENT_COLUMNS} ${FROM} ${whereWithTenant(['m.id = $1'])}`,
     [id],
   );
   return rows[0] || null;
@@ -94,7 +101,7 @@ async function findById(id) {
 
 async function productMovements(productId, limit = 50) {
   const { rows } = await query(
-    `SELECT ${MOVEMENT_COLUMNS} ${FROM} WHERE m.product_id = $1
+    `SELECT ${MOVEMENT_COLUMNS} ${FROM} ${whereWithTenant(['m.product_id = $1'])}
       ORDER BY m.movement_date DESC, m.id DESC LIMIT $2`,
     [productId, limit],
   );
@@ -128,8 +135,9 @@ async function dailySeries(days, filters = {}) {
        FROM days d
        LEFT JOIN inventory_movements m
          ON m.movement_date >= d.day
-        AND m.movement_date < d.day + interval '1 day' ${extra}
-       LEFT JOIN products p ON p.id = m.product_id
+        AND m.movement_date < d.day + interval '1 day'
+        AND ${tenantPredicate('m')} ${extra}
+       LEFT JOIN products p ON p.id = m.product_id AND p.establishment_id = m.establishment_id
       GROUP BY d.day ORDER BY d.day`,
     values,
   );
@@ -138,12 +146,14 @@ async function dailySeries(days, filters = {}) {
 
 async function recent(limit = 8) {
   const { rows } = await query(
-    `SELECT ${MOVEMENT_COLUMNS} ${FROM} ORDER BY m.movement_date DESC, m.id DESC LIMIT $1`,
+    `SELECT ${MOVEMENT_COLUMNS} ${FROM} ${whereWithTenant()}
+      ORDER BY m.movement_date DESC, m.id DESC LIMIT $1`,
     [limit],
   );
   return rows;
 }
 
 module.exports = {
-  register, findAll, findById, productMovements, dailySeries, recent, MOVEMENT_COLUMNS, FROM,
+  register, findAll, findById, productMovements, dailySeries, recent,
+  MOVEMENT_COLUMNS, FROM, whereWithTenant,
 };

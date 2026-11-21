@@ -14,11 +14,14 @@ La matriz de `backend/src/config/permissions.js` se aplica **en el backend** med
 
 | Rol | Alcance |
 | --- | --- |
-| `ADMINISTRADOR` | acceso total (`*`) |
-| `ENCARGADO_INVENTARIO` | catálogos y movimientos, alertas, indicadores, dashboard, reportes, perfil |
-| `CONSULTA` | solo lectura y exportación, perfil propio |
+| `SUPERADMINISTRADOR` | establecimientos, cuentas y estadísticas globales desde `/superadmin`; **sin acceso a inventario ni a IA** |
+| `ADMINISTRADOR` | inventario completo dentro de su establecimiento; **no gestiona cuentas** |
+| `ENCARGADO_INVENTARIO` | inventario completo dentro de su establecimiento; **no gestiona cuentas** |
+| `CONSULTA` | solo lectura y exportación dentro de su establecimiento, perfil propio |
 
-Rutas protegidas en la SPA: si el usuario no tiene el permiso de la ruta, se redirige a `/acceso-denegado`.
+El `establishment_id` se toma del JWT validado en `authenticate()`; cualquier `tenant_id` enviado por el frontend se ignora. Un token de superadministrador no tiene contexto de establecimiento y, por diseño, no puede consultar inventario.
+
+Rutas protegidas en la SPA: si el usuario no tiene el permiso de la ruta, se redirige a `/acceso-denegado`. Tras el login, `/auth/me` hidrata los permisos de todos los roles y `homePathFor` envía al superadministrador a `/superadmin`, al encargado de inventario a `/movimientos` y, si `mustChangePassword` está activo, a `/perfil`.
 
 ## 3. Validación y consultas
 
@@ -45,20 +48,30 @@ Rutas protegidas en la SPA: si el usuario no tiene el permiso de la ruta, se red
 - `JWT_SECRET` es obligatorio en tiempo de ejecución y debe tener al menos 32 caracteres aleatorios.
 - `DATABASE_URL` es obligatoria: se usa la URL **pooler** de Neon. Las migraciones usan `DIRECT_URL` o la derivación automática sin `-pooler`.
 - TLS se fuerza para `*.neon.tech` con verificación de certificado (`rejectUnauthorized: true`). No se desactiva la validación.
-- El seed solo guarda hashes bcrypt; la contraseña demo se define en `DEMO_PASSWORD` y la carga demo se bloquea cuando `NODE_ENV=production`.
-- El primer administrador real se crea con `npm run admin` usando `SEED_ADMIN_*`; las credenciales no se escriben en el código.
-- El asistente IA se ejecuta en backend con datos ya autorizados; no envía información a servicios externos.
+- **No existe `DEMO_PASSWORD` ni carga demo:** `npm run seed` está deshabilitado y no crea usuarios ni contraseñas. El SQL en `database/seeds/` se conserva solo como referencia histórica y no debe ejecutarse en bases multiempresa.
+- El usuario inicial se crea con `npm run admin` usando `SEED_ADMIN_*` (incluido `SEED_ADMIN_ESTABLISHMENT_ID`); las credenciales no se escriben en el código y las contraseñas se guardan como hashes bcrypt.
+- La promoción a superadministrador es manual: `PROMOTE_SUPERADMIN_EMAIL` y `CONFIRM_PROMOTE_SUPERADMIN=true` con `npm run promote:superadmin`. No modifica contraseñas ni imprime secretos.
+- El cálculo del Asistente IA se ejecuta en backend con datos ya autorizados. El copiloto conversacional **sí envía información a un tercero**: un resumen agregado del establecimiento a OpenRouter, solo tras consentimiento explícito, con autenticación y rate limit, usando exclusivamente `openrouter/free` (`usage.cost === 0`). Sin clave o sin consentimiento muestra servicio no disponible; no hay fallback local ni de pago. Las variables `OPENROUTER_*` viven solo en backend/Vercel.
 
-## 6. Checklist para producción
+## 6. Aislamiento multiempresa
+
+- `establishment_id` derivado del JWT validado en backend; `tenant_id` del frontend se ignora.
+- RLS/FORCE RLS en tablas de inventario alimentado por los GUCs `app.current_establishment_id` y `app.current_role`.
+- Predicados SQL explícitos en los repositorios porque el rol de conexión puede ser dueño de las tablas y omitir RLS.
+- `fn_app_is_system()` es el único bypass, reservado a mantenimiento; el superadministrador no puede leer inventario de ninguna empresa.
+- bcrypt, `must_change_password` en primer login, `password_version`, revocación de sesiones por `jti`, bloqueo de usuarios inactivos y de establecimientos desactivados. Los hashes nunca se muestran.
+
+## 7. Checklist para producción
 
 1. `NODE_ENV=production`, `JWT_SECRET` fuerte y `CORS_ORIGIN` con el dominio real.
 2. `DATABASE_URL` pooler de Neon con `sslmode=require`; `DIRECT_URL` opcional para DDL.
-3. No ejecutar `npm run seed`.
-4. Crear el administrador con `npm run admin` y cambiar contraseñas iniciales.
-5. Verificar `/health`, login, roles, `/api/ia/insights` y exportaciones antes de abrir el acceso.
-6. Confirmar que el bundle de frontend no contiene secretos y que las rutas `/api` responden en el mismo dominio.
-7. En Vercel, mantener las variables solo en la configuración del proyecto; nunca en el repositorio.
+3. `npm run seed` está deshabilitado: no hay datos ni credenciales demo que cargar.
+4. Crear el usuario inicial con `npm run admin` y cambiar contraseñas iniciales; promover al superadministrador solo de forma manual y autorizada.
+5. Las migraciones 005-008 ya están aplicadas a Neon con autorización explícita; no ejecutarlas de nuevo sin `ALLOW_PRODUCTION_MIGRATION=true` y una nueva autorización.
+6. Verificar `/health`, login por rol, `/superadmin`, `/api/ia/status`, el consentimiento del chat y exportaciones aisladas antes de abrir el acceso.
+7. Confirmar que el bundle de frontend no contiene secretos y que las rutas `/api` responden en el mismo dominio.
+8. En Vercel, mantener las variables solo en la configuración del proyecto; nunca en el repositorio.
 
-## 7. Exclusiones de seguridad
+## 8. Exclusiones de seguridad
 
 El sistema no implementa recuperación de contraseña por correo, doble factor, SSO ni auditoría inmutable criptográfica. Esa funcionalidad queda fuera del alcance académico del proyecto.

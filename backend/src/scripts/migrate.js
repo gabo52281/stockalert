@@ -22,6 +22,19 @@ env.assertRuntimeConfig();
 const migrationUrl = env.DIRECT_URL || directDatabaseUrl(env.DATABASE_URL);
 const migrationPool = new Pool({ ...buildPoolConfig(migrationUrl), max: 1 });
 
+function isLocalDatabase(url) {
+  return /(^|@)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(url || '');
+}
+
+const command = process.argv[2] || 'up';
+if (command !== 'status' && !isLocalDatabase(migrationUrl)
+  && process.env.ALLOW_PRODUCTION_MIGRATION !== 'true') {
+  throw new Error(
+    'Este comando apunta a una base no local. Para aplicar cambios en producción '
+    + 'se requiere autorización explícita: ALLOW_PRODUCTION_MIGRATION=true',
+  );
+}
+
 const ROOT = path.resolve(__dirname, '../../../');
 const MIGRATIONS_DIR = path.join(ROOT, 'database', 'migrations');
 const MIGRATION_LOCK_ID = 742001;

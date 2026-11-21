@@ -1,6 +1,6 @@
 # Pruebas y verificación
 
-Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20. No se ejecutaron migraciones en Neon ni despliegue en Vercel. La conexión a Neon solo se ejerció al ejecutar la suite con el `.env` configurado por el usuario, tal como se detalla en la sección 3. Esta pasada final añade la verificación de los 10 reportes PDF rediseñados y del copiloto conversacional con OpenRouter gratuito (sección 8 y 9). Ninguna clave de API se guardó en el repositorio ni en el frontend.
+Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20 y 2026-11-21. La verificación multiempresa se realizó contra una fixture PostgreSQL local/desechable en `127.0.0.1:55432`, donde se aplicaron primero las migraciones `005` a `008`. Con autorización explícita del propietario esas mismas migraciones se aplicaron también a Neon y se promovió `admin@su-dominio.com` a `SUPERADMINISTRADOR` sin tocar su contraseña; no se cargaron seeds en Neon ni se desplegó en Vercel. Esta pasada añade la verificación de aislamiento A/B, de los 10 reportes PDF rediseñados y del copiloto conversacional con OpenRouter gratuito (secciones 3, 8 y 9). Ninguna clave de API ni credencial real se guardó en el repositorio ni en el frontend.
 
 ## 1. Entorno usado
 
@@ -21,20 +21,21 @@ Se eliminaron los lockfiles anidados de `backend/` y `frontend/`; la raíz conse
 
 ## 3. Backend — Vitest + Supertest
 
-Comando: `npm test` en la raíz, con `DATABASE_URL` y `DIRECT_URL` apuntando al fixture local (`postgresql://postgres:postgres@127.0.0.1:55432/stockalert`) y credenciales demo `admin@stockalert.local` / `Demo1234!`.
+Comando: `npm test` en la raíz, con `DATABASE_URL` y `DIRECT_URL` apuntando al fixture local (`postgresql://postgres:postgres@127.0.0.1:55432/stockalert`) y credenciales de esa fixture suministradas por entorno (`TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, `TEST_CONSULTA_EMAIL`, `TEST_CONSULTA_PASSWORD`). No existen credenciales demo en el código.
 
 Resultado real de la pasada final:
 
 ```text
-Test Files  7 passed (7)
-Tests       70 passed (70)
-Duration    3.38s
+Test Files  8 passed (8)
+Tests       98 passed (98)
+Duration    6.28s
 ```
 
 Cobertura:
 
 | Archivo | Comprobaciones |
 | --- | --- |
+| `tests/tenant-security.test.js` (28) | login con permisos inmediatos; A/B sin fuga en productos, categorías, proveedores, movimientos, dashboard, alertas, indicadores, reportes, IA y configuración; IDs cross-tenant devuelven 404; `tenant_id` del frontend ignorado; validación de relaciones; concurrencia de inventario; superadmin sin inventario ni IA; reset y desactivación; sin exponer hashes |
 | `tests/api.test.js` (15) | `/health`; login inválido 401; ruta privada sin token 401; permiso de rol 403; validación Zod 400; creación de producto stock 0; entrada con stock anterior/resultante; salida con stock resultante; exceso de salida 409; historial conservado; resumen de alertas; dashboard e indicadores; **`/api/ia/insights` con datos reales**; **`/api/ia/status` sin secretos y `/api/ia/chat` sin texto local**; JSON/CSV/PDF con resumen y BOM; logout con token revocado |
 | `tests/ai.test.js` (7) | normalización de serie; sin historial; demanda constante y tendencia; detección de pico atípico; sugerencia de reposición y riesgo; sin reposición cuando hay cobertura; resumen priorizado |
 | `tests/ai-chat.test.js` (14) | presupuestos colombianos y plan entero; intenciones; contexto con cifras reales; estado sin secretos; sin clave y sin consentimiento sin respuesta local; 402/429/timeout; modelo de pago rechazado; respuesta gratuita aceptada y claves sanitizadas; reintento gratuito con contenido vacío |
@@ -59,7 +60,7 @@ Nota: Vitest muestra un aviso informativo sobre el build CJS de la API de Vite; 
 
 En la pasada final, `npm run test:unit` ejecuta 4 archivos y totaliza **44/44 pruebas puras** (7 de IA determinista, 13 del copiloto, 21 de validación/formato y 3 de Neon), sin requerir base de datos.
 
-**Verificación posterior con una Neon recién creada:** al ejecutar `npm test` con el `.env` apuntando a la Neon configurada por el usuario (sin datos demo), `tests/api.test.js` falla en `beforeAll` porque espera `admin@stockalert.local` / `Demo1234!`. Resultado real: 4 archivos OK, 1 fallido; 20 pruebas superadas, 14 omitidas. Los otros 4 archivos (`ai`, `alerts`, `metrics`, `neon`) pasan. No es una regresión del cambio de Vercel Services: la suite de API necesita una base con datos demo (o credenciales de prueba equivalentes). No se cargó el seed en esa base.
+**Verificación posterior con una Neon recién creada:** la suite de integración omite sus bloques de base si no se definen `DATABASE_URL` o las credenciales `TEST_*`/`E2E_*`; no hay usuarios ni contraseñas demo incrustados. Con autorización explícita se aplicaron las migraciones `005`–`008` a Neon y se promovió manualmente `admin@su-dominio.com` a `SUPERADMINISTRADOR`; la contraseña no se modificó. La verificación funcional posterior contra Neon y el despliegue siguen pendientes.
 
 ## 4. Lint
 
@@ -76,13 +77,13 @@ Durante la verificación final se corrigieron dos regresiones detectadas por lin
 
 Comando: `npm run build` en la raíz.
 
-Resultado real de la pasada final: compilación correcta de 2107 módulos en 9,03 s.
+Resultado real de la pasada final: compilación correcta de 2108 módulos en 9,57 s.
 
 ```text
 index.html                  1.11 kB │ gzip:   0.60 kB
-assets/index-*.css         33.87 kB │ gzip:   7.39 kB
-assets/icons-*.js          26.61 kB │ gzip:   5.46 kB
-assets/index-*.js         298.76 kB │ gzip:  60.23 kB
+assets/index-*.css         33.70 kB │ gzip:   7.37 kB
+assets/icons-*.js          27.87 kB │ gzip:   5.74 kB
+assets/index-*.js         337.04 kB │ gzip:  64.94 kB
 assets/react-*.js         346.02 kB │ gzip: 107.91 kB
 assets/charts-*.js        438.05 kB │ gzip: 119.22 kB
 ```
@@ -109,7 +110,7 @@ Durante la sesión se registraron respuestas `GET /api/ia/insights?days=30&leadT
 
 ## 7. E2E en navegador
 
-Comando: `npm run test:e2e --workspace=frontend`, con `E2E_BASE_URL=http://127.0.0.1:5173`, `E2E_EMAIL` y `E2E_PASSWORD` tomados de `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` del `.env`.
+Comando: `npm run test:e2e --workspace=frontend`, con `E2E_BASE_URL=http://127.0.0.1:5173`, `E2E_EMAIL`, `E2E_PASSWORD` y `E2E_HOME_PATH` tomados de credenciales de la fixture local definidas explícitamente en el entorno. Las pruebas ya no contienen fallbacks demo y fallan con mensaje claro si faltan esas variables.
 
 Salida real de la pasada final:
 
@@ -132,7 +133,7 @@ Salida real de la pasada final:
 E2E: 14 comprobaciones superadas, sin errores de JavaScript.
 ```
 
-La prueba comprueba que no haya errores de consola ni excepciones de página. También se ejecutó sin clave, donde el paso 8 informó **IA temporalmente fuera de servicio** y el paso 9 verificó el aviso exacto. Durante las pasadas se detectaron y corrigieron errores reales: `aiApi.chat` devolvía `{ data: ... }` y el componente intentaba `response.text.split(...)`; y el badge se leía antes de que resolviera `/api/ia/status`. Ambos quedaron corregidos. Anteriormente la misma suite se ejecutó contra el artefacto de producción servido por `npm start` con 10/10 comprobaciones.
+La prueba comprueba que no haya errores de consola ni excepciones de página. El paso 8 solo confirma que hay clave configurada: si OpenRouter agota cuota, devuelve un modelo no gratuito o cae, el paso 9 acepta exclusivamente el aviso oficial **IA temporalmente fuera de servicio** y nunca una respuesta local o de pago. Durante las pasadas se detectaron y corrigieron errores reales: `aiApi.chat` devolvía `{ data: ... }` y el componente intentaba `response.text.split(...)`; el badge se leía antes de que resolviera `/api/ia/status`; Reportes/Movimientos consultaban el listado privado `/api/users` y generaban dos `403` en consola, sustituido por `/api/users/options`; y el timeout HTTP de la SPA era menor que el tiempo permitido al proveedor. Todo quedó corregido. Anteriormente la misma suite se ejecutó contra el artefacto de producción servido por `npm start` con 10/10 comprobaciones.
 
 ### E2E específico de campos numéricos
 
@@ -180,6 +181,14 @@ E2E de pestañas: 10 comprobaciones superadas.
 
 La causa era que el componente `Nueva salida` estaba incluido dentro de la condición `tab === 'in'` y no existía una rama `tab === 'out'`. Ahora las tres pestañas usan renderizado condicional de React: `in`, `out` e `history`. El indicador azul depende de la misma variable de estado `tab`.
 
+## 7.1 Migraciones multiempresa y aislamiento A/B
+
+- Se aplicaron primero a la fixture local y, con autorización explícita, a Neon: `005_multi_tenant.sql`, `006_tenant_foreign_keys.sql`, `007_tenant_defaults.sql` y `008_harden_tenant_boundaries.sql`. Antes de aplicarlas se validaron las cuatro con `ROLLBACK` contra el esquema real de Neon; la primera pasada de `005` falló por una política inválida sobre `establishments` y fue corregida sin dejar cambios parciales.
+- La migración `008` endurece las políticas RLS para que `SUPERADMINISTRADOR` no consulte inventario, valida `user_id` y `supplier_id` dentro de `fn_register_movement()` y crea la FK compuesta movimientos↔usuario solo cuando los datos son consistentes.
+- `tests/tenant-security.test.js` ejecuta 29 comprobaciones con dos establecimientos A/B: listados, detalle, edición, borrado, movimientos, categorías, proveedores, dashboard, alertas, indicadores, reportes, configuración y copiloto IA. Incluye además concurrencia sobre el mismo producto, `tenant_id` falso en el body, promoción/reset de contraseña, desactivación de establecimiento y el endpoint aislado `/api/users/options`.
+- Resultado: 29/29 comprobaciones superadas. Antes de añadir los predicados SQL explícitos fallaban 10; la causa raíz era que el rol de conexión local/Neon puede omitir RLS aunque exista `FORCE ROW LEVEL SECURITY`.
+- El seed demo quedó deshabilitado: `npm run seed` termina con un aviso y no crea usuarios ni datos.
+
 ## 8. Verificación de los 10 reportes PDF rediseñados
 
 - Se generaron JSON, PDF y CSV reales de los 10 reportes desde `/api/reports/:name?format=...` contra el fixture local, usando `from=2026-10-22T00:00:00` y `to=2026-11-20T23:59:59` en los reportes de movimientos.
@@ -225,7 +234,7 @@ valuation            OK  páginas=2  filas=29
 - No hay `bindings`: el navegador llama a `/api` en el mismo dominio.
 - `backend/api/index.js` exporta la app Express; al importarla con `VERCEL=1` y variables de entorno de prueba no se llama a `listen()` y el proceso termina.
 - Validación en checkout limpio: `npm install --dry-run` desde `backend/` resolvería 331 paquetes y desde `frontend/` 320, usando el workspace raíz del repositorio.
-- `npm run build --workspace=frontend` compila la SPA correctamente (2107 módulos, 7,76 s en la última pasada).
+- `npm run build --workspace=frontend` compila la SPA correctamente (2108 módulos, 9,57 s en la última pasada).
 - En `app.js`, el sirvido estático de `frontend/dist` se desactiva cuando `VERCEL` está definido, porque la plataforma sirve los archivos.
 - El bundle de frontend usa `baseURL: '/api'`; no aparece `VITE_API_URL` ni secretos en el código compilado.
 
@@ -255,11 +264,11 @@ La inversión estimada para cubrir la demanda de 14 días es 236200.
 
 ## 12. Limitaciones
 
-- No se ejecutaron migraciones ni seed en la Neon configurada por el usuario. Esa base no tiene los usuarios demo, por lo que `tests/api.test.js` falla allí con 401 en `beforeAll`; la suite completa se verificó contra el fixture local `127.0.0.1:55432`.
+- No se ejecutaron seeds en la Neon configurada por el usuario. Las migraciones `005`–`008` y la promoción explícita del superadministrador sí se ejecutaron allí con autorización; la verificación completa de regresión se realizó contra el fixture local `127.0.0.1:55432`.
 - No se dispuso de cuenta/acceso a Vercel: **no se realizó un despliegue real**. Solo se verificó la configuración y el artefacto local. La clave de OpenRouter debe configurarse como `OPENROUTER_API_KEY` en el entorno del backend de Vercel; nunca como variable `VITE_`.
 - La clave `sk-or-v1-…` aparecida en la conversación no se guardó ni se repitió. Debe considerarse comprometida y **rotarse** antes de configurarla en Vercel.
-- Sin clave, el copiloto no envía datos a proveedores externos y muestra el aviso de IA fuera de servicio; no genera respuestas de chat por reglas locales. No se activó facturación ni se usó ningún modelo de pago.
-- Los datos demo existentes se conservaron; no se borró ninguna base de datos. No se ejecutaron seed, migraciones, DDL, `DELETE`, `UPDATE` ni SQL directo para esta tarea.
+- Sin clave, el copiloto no envía datos a proveedores externos y muestra el aviso de IA fuera de servicio; no genera respuestas de chat por reglas locales. Con consentimiento y clave, envía contexto agregado del establecimiento a OpenRouter; nunca SQL, secretos ni datos de otro tenant. No se activó facturación ni se usó ningún modelo de pago.
+- No se borraron datos de producción. En la fixture local sí se aplicaron DDL de migración y se crearon/eliminaron registros temporales de pruebas A/B; nada de eso se replicó a Neon.
 
 ## 13. Repetir la verificación
 
@@ -276,13 +285,18 @@ npm test
 npm run build
 npm run dev
 
-# En otra terminal, contra el modo desarrollo (PowerShell)
+# En otra terminal, contra el modo desarrollo (PowerShell).
+# Use SOLO credenciales de una fixture local/desechable.
+$env:DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55432/stockalert'
+$env:DIRECT_URL=$env:DATABASE_URL
+$env:TEST_ADMIN_EMAIL='admin@fixture.local'
+$env:TEST_ADMIN_PASSWORD='valor-de-la-fixture'
+$env:TEST_CONSULTA_EMAIL='consulta@fixture.local'
+$env:TEST_CONSULTA_PASSWORD='valor-de-la-fixture'
 $env:E2E_BASE_URL='http://127.0.0.1:5173'
-$envMap=@{}; Get-Content '.env' | ForEach-Object {
-  if ($_ -match '^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)$') { $envMap[$matches[1]]=$matches[2] }
-}
-$env:E2E_EMAIL=$envMap['SEED_ADMIN_EMAIL']
-$env:E2E_PASSWORD=$envMap['SEED_ADMIN_PASSWORD']
+$env:E2E_EMAIL=$env:TEST_ADMIN_EMAIL
+$env:E2E_PASSWORD=$env:TEST_ADMIN_PASSWORD
+$env:E2E_HOME_PATH='/'
 npm run test:e2e --workspace=frontend
 npm run test:fields
 npm run test:numeric-e2e --workspace=frontend
@@ -294,6 +308,6 @@ $env:E2E_BASE_URL='http://localhost:4000'
 npm run test:e2e --workspace=frontend
 ```
 
-Para ejecutar la suite completa contra Neon, basta con que `DATABASE_URL` y `JWT_SECRET` estén en el `.env` raíz o en el entorno; las integraciones se activan automáticamente. Para aplicar migraciones de forma explícita: `npm run migrate`.
+Las integraciones se activan cuando hay `DATABASE_URL` **y** las credenciales `TEST_*`. Para aplicar migraciones de forma explícita: `npm run migrate` (en una base no local exige `ALLOW_PRODUCTION_MIGRATION=true` y autorización del propietario). `npm run seed` está deshabilitado a propósito.
 
 Variables nuevas del copiloto: `OPENROUTER_API_KEY` (solo servidor; vacía = IA fuera de servicio), `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512`. En Vercel deben ir en la sección de variables de entorno del servicio **backend**; el frontend no necesita ninguna.

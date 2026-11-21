@@ -2,14 +2,19 @@
 
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
-const { query } = require('../config/database');
+const {
+  query, runAsSystem, runWithContext,
+} = require('../config/database');
 const ApiError = require('../utils/ApiError');
-const { permissionsFor } = require('../config/permissions');
+const { permissionsFor, isSuperAdmin } = require('../config/permissions');
 
 function signToken(user) {
   const jti = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const token = jwt.sign(
-    { sub: String(user.id), email: user.email, role: user.role, jti },
+    {
+      sub: String(user.id), email: user.email, role: user.role, jti,
+      pv: user.password_version || 0, est: user.establishment_id || null,
+    },
     env.JWT_SECRET,
     { expiresIn: env.JWT_EXPIRES_IN },
   );
@@ -36,20 +41,33 @@ async function authenticate(req, _res, next) {
       throw ApiError.unauthorized('La sesión fue cerrada');
     }
 
-    const { rows } = await query(
-      `SELECT u.id, u.name, u.email, u.active, r.name AS role
+    const { rows } = await runAsSystem(() => query(
+      `SELECT u.id, u.name, u.email, u.active, u.establishment_id,
+              u.password_version, u.must_change_password, r.name AS role,
+              e.active AS establishment_active
          FROM users u JOIN roles r ON r.id = u.role_id
+         LEFT JOIN establishments e ON e.id = u.establishment_id
         WHERE u.id = $1`,
       [payload.sub],
-    );
+    ));
 
     if (rows.length === 0 || !rows[0].active) {
       throw ApiError.unauthorized('Usuario inexistente o inactivo');
     }
+    if (Number(payload.pv || 0) !== Number(rows[0].password_version || 0)) {
+      throw ApiError.unauthorized('La contraseña fue cambiada. Inicie sesión nuevamente');
+    }
+    if (!isSuperAdmin(rows[0].role)
+      && (rows[0].establishment_id == null || !rows[0].establishment_active)) {
+      throw ApiError.unauthorized('El establecimiento está desactivado. Contacte al superadministrador.');
+    }
 
     req.user = { ...rows[0], permissions: permissionsFor(rows[0].role) };
     req.token = { jti: payload.jti, expiresAt: payload.exp };
-    return next();
+    return runWithContext(
+      { role: req.user.role, establishmentId: req.user.establishment_id },
+      () => next(),
+    );
   } catch (error) {
     return next(error);
   }

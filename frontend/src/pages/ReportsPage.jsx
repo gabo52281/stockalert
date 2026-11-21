@@ -53,7 +53,7 @@ export default function ReportsPage() {
 
   const { data: productsData } = useApi(() => productsApi.list({ status: 'all', limit: 100 }), []);
   const { data: categoriesData } = useApi(() => categoriesApi.list({ status: 'all', limit: 100 }), []);
-  const { data: usersData } = useApi(() => usersApi.list({ limit: 100 }), []);
+  const { data: usersData } = useApi(() => usersApi.options(), []);
 
   const exportFile = async (format) => {
     setDownloading(format);

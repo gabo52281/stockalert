@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { KeyRound, UserRound } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { authApi } from '../api/endpoints.js';
@@ -11,7 +12,8 @@ import { Field, Input } from '../components/ui/Field.jsx';
 import Badge from '../components/ui/Badge.jsx';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { success, error: notifyError } = useToast();
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [saving, setSaving] = useState(false);
@@ -25,8 +27,10 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       await authApi.changePassword({ currentPassword: form.currentPassword, newPassword: form.newPassword });
-      success('Contraseña actualizada correctamente');
+      success('Contraseña actualizada. Inicie sesión nuevamente.');
       setForm({ currentPassword: '', newPassword: '', confirm: '' });
+      await logout();
+      navigate('/login', { replace: true });
     } catch (err) {
       notifyError(errorMessage(err));
     } finally {
@@ -37,6 +41,12 @@ export default function ProfilePage() {
   return (
     <>
       <PageHeader title="Mi perfil" description="Información de la cuenta y cambio de contraseña." />
+      {user?.mustChangePassword && (
+        <div className="info-box info-box--warning">
+          Por seguridad debe cambiar la contraseña asignada antes de continuar. Al guardarla,
+          todas las sesiones anteriores quedarán cerradas.
+        </div>
+      )}
       <div className="grid-2">
         <Card>
           <CardHeader title="Datos personales" subtitle="Información asociada a su usuario" />

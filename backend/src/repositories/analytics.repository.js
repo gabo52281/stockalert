@@ -1,8 +1,9 @@
 'use strict';
 
 const { query } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 const productsRepository = require('./products.repository');
-const { FROM } = require('./movements.repository');
+const { FROM, whereWithTenant } = require('./movements.repository');
 
 async function alertSummary() {
   const { rows } = await query(`
@@ -14,6 +15,7 @@ async function alertSummary() {
       count(*) FILTER (WHERE active AND alert_level = 'AGOTADO')::int AS out_of_stock,
       count(*) FILTER (WHERE active AND alert_level IN ('BAJO','CRITICO','AGOTADO'))::int AS attention
     FROM v_product_inventory
+    WHERE ${tenantPredicate('v_product_inventory')}
   `);
   return rows[0];
 }
@@ -34,8 +36,11 @@ async function alertDetail(id) {
   const { rows: recentMovements } = await query(
     `SELECT m.id, m.type, m.quantity, m.stock_before, m.stock_after,
             m.movement_date, u.name AS user_name, m.reason
-       FROM inventory_movements m JOIN users u ON u.id = m.user_id
-      WHERE m.product_id = $1 ORDER BY m.movement_date DESC LIMIT 10`,
+       FROM inventory_movements m
+       LEFT JOIN users u ON u.id = m.user_id
+        AND (u.establishment_id = m.establishment_id OR u.establishment_id IS NULL)
+      ${whereWithTenant(['m.product_id = $1'])}
+      ORDER BY m.movement_date DESC LIMIT 10`,
     [id],
   );
 
@@ -46,19 +51,19 @@ async function indicatorsSummary(days) {
   const { rows } = await query(
     `WITH window_movements AS (
        SELECT m.* FROM inventory_movements m
-        WHERE m.movement_date >= now() - ($1::int || ' days')::interval
+        ${whereWithTenant(["m.movement_date >= now() - ($1::int || ' days')::interval"])}
      )
      SELECT
-       (SELECT count(*)::int FROM v_product_inventory WHERE active) AS active_products,
-       (SELECT COALESCE(SUM(quantity),0)::numeric FROM v_product_inventory WHERE active) AS total_units,
-       (SELECT count(*)::int FROM v_product_inventory WHERE active AND alert_level='BAJO') AS low_products,
-       (SELECT count(*)::int FROM v_product_inventory WHERE active AND alert_level='CRITICO') AS critical_products,
-       (SELECT count(*)::int FROM v_product_inventory WHERE active AND alert_level='AGOTADO') AS out_of_stock_products,
+       (SELECT count(*)::int FROM v_product_inventory WHERE ${tenantPredicate()} AND active) AS active_products,
+       (SELECT COALESCE(SUM(quantity),0)::numeric FROM v_product_inventory WHERE ${tenantPredicate()} AND active) AS total_units,
+       (SELECT count(*)::int FROM v_product_inventory WHERE ${tenantPredicate()} AND active AND alert_level='BAJO') AS low_products,
+       (SELECT count(*)::int FROM v_product_inventory WHERE ${tenantPredicate()} AND active AND alert_level='CRITICO') AS critical_products,
+       (SELECT count(*)::int FROM v_product_inventory WHERE ${tenantPredicate()} AND active AND alert_level='AGOTADO') AS out_of_stock_products,
        (SELECT COALESCE(SUM(quantity),0)::numeric FROM window_movements WHERE type='IN') AS entries,
        (SELECT COALESCE(SUM(quantity),0)::numeric FROM window_movements WHERE type='OUT') AS exits,
        (SELECT count(*)::int FROM window_movements) AS movement_count,
-       (SELECT COALESCE(SUM(inventory_value),0)::numeric FROM v_product_inventory WHERE active) AS inventory_value,
-       (SELECT COALESCE(SUM(inventory_sale_value),0)::numeric FROM v_product_inventory WHERE active) AS inventory_sale_value,
+       (SELECT COALESCE(SUM(inventory_value),0)::numeric FROM v_product_inventory WHERE ${tenantPredicate()} AND active) AS inventory_value,
+       (SELECT COALESCE(SUM(inventory_sale_value),0)::numeric FROM v_product_inventory WHERE ${tenantPredicate()} AND active) AS inventory_sale_value,
        $1::int AS window_days`,
     [days],
   );
@@ -76,13 +81,16 @@ async function coverageList({ days, limit, offset }) {
     `SELECT id, code, name, category_name, quantity, min_stock, alert_level,
             out_units_window, avg_daily_out, coverage_status, coverage_days
        FROM v_product_inventory
-      WHERE active = TRUE AND effective_window_days = $1
+      WHERE ${tenantPredicate('v_product_inventory')}
+        AND active = TRUE AND effective_window_days = $1
       ORDER BY CASE WHEN coverage_days IS NULL THEN 1 ELSE 0 END, coverage_days ASC, name
       LIMIT $2 OFFSET $3`,
     [days, limit, offset],
   );
   const { rows: countRows } = await query(
-    'SELECT count(*)::int AS total FROM v_product_inventory WHERE active = TRUE AND effective_window_days = $1',
+    `SELECT count(*)::int AS total FROM v_product_inventory
+      WHERE ${tenantPredicate('v_product_inventory')}
+        AND active = TRUE AND effective_window_days = $1`,
     [days],
   );
   return { rows, total: countRows[0].total };
@@ -95,9 +103,11 @@ async function topProducts(days, limit = 8) {
             COUNT(m.id)::int AS movements
        FROM v_product_inventory p
        LEFT JOIN inventory_movements m
-         ON m.product_id = p.id AND m.type = 'OUT'
-        AND m.movement_date >= now() - ($1::int || ' days')::interval
-      WHERE p.active = TRUE
+          ON m.product_id = p.id AND m.type = 'OUT'
+         AND m.establishment_id = p.establishment_id
+         AND m.movement_date >= now() - ($1::int || ' days')::interval
+         AND ${tenantPredicate('m')}
+      WHERE ${tenantPredicate('p')} AND p.active = TRUE
       GROUP BY p.id, p.code, p.name, p.category_name, p.quantity, p.alert_level
       ORDER BY total_out DESC, p.name
       LIMIT $2`,
@@ -113,20 +123,24 @@ async function dashboard(days) {
     require('./movements.repository').dailySeries(days),
     query(`
       SELECT alert_level AS level, count(*)::int AS total
-        FROM v_product_inventory WHERE active = TRUE GROUP BY alert_level
+        FROM v_product_inventory
+       WHERE ${tenantPredicate('v_product_inventory')} AND active = TRUE
+       GROUP BY alert_level
     `),
     require('./movements.repository').recent(8),
     topProducts(days, 6),
     query(`
       SELECT code, name, coverage_days, alert_level
         FROM v_product_inventory
-       WHERE active = TRUE AND coverage_days IS NOT NULL
+       WHERE ${tenantPredicate('v_product_inventory')} AND active = TRUE
+         AND coverage_days IS NOT NULL
        ORDER BY coverage_days ASC LIMIT 6
     `),
     query(`
       SELECT id, code, name, quantity, alert_level, coverage_days
         FROM v_product_inventory
-       WHERE active = TRUE AND alert_level <> 'NORMAL'
+       WHERE ${tenantPredicate('v_product_inventory')} AND active = TRUE
+          AND alert_level <> 'NORMAL'
        ORDER BY CASE alert_level
          WHEN 'AGOTADO' THEN 1 WHEN 'CRITICO' THEN 2 ELSE 3 END,
          coverage_days ASC NULLS LAST, name
@@ -242,7 +256,7 @@ function movementFilters(filters, forceType) {
     values.push(filters.to);
     where.push(`m.movement_date <= $${values.length}`);
   }
-  return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', values };
+  return { clause: whereWithTenant(where), values };
 }
 
 /** Resuelve nombres legibles para los filtros sin exponer SQL dinámico. */
@@ -257,7 +271,13 @@ async function resolveFilterLabels(filters = {}) {
 
   await Promise.all(lookups.map(async ([key, table]) => {
     if (!filters[key]) return;
-    const { rows } = await query(`SELECT name FROM ${table} WHERE id = $1 LIMIT 1`, [filters[key]]);
+    const predicate = table === 'users'
+      ? '(fn_app_is_system() OR establishment_id = fn_app_establishment_id() OR establishment_id IS NULL)'
+      : tenantPredicate(table);
+    const { rows } = await query(
+      `SELECT name FROM ${table} WHERE id = $1 AND ${predicate} LIMIT 1`,
+      [filters[key]],
+    );
     if (rows[0]?.name) labels[key] = rows[0].name;
   }));
 
@@ -284,7 +304,7 @@ async function reportData(name, filters) {
 
   if (name === 'inventory' || name === 'low-stock' || name === 'critical' || name === 'coverage' || name === 'valuation') {
     columns = COLUMNS[name];
-    const where = ['active = TRUE'];
+    const where = [`${tenantPredicate('v_product_inventory')}`, 'active = TRUE'];
     if (name === 'low-stock') where.push("alert_level = 'BAJO'");
     if (name === 'critical') where.push("alert_level IN ('CRITICO','AGOTADO')");
     if (filters.categoryId) {
@@ -300,7 +320,7 @@ async function reportData(name, filters) {
       where.push(`alert_level = $${params.length}`);
     }
     if (name === 'inventory' && (filters.status === 'active' || filters.status === 'inactive')) {
-      where[0] = `active = ${filters.status === 'active' ? 'TRUE' : 'FALSE'}`;
+      where[1] = `active = ${filters.status === 'active' ? 'TRUE' : 'FALSE'}`;
     }
     const { rows: result } = await query(
       `SELECT ${columns.map((c) => c.key).join(', ')} FROM v_product_inventory
@@ -316,9 +336,11 @@ async function reportData(name, filters) {
               COUNT(m.id)::int AS movements, p.quantity, p.alert_level
          FROM v_product_inventory p
          LEFT JOIN inventory_movements m ON m.product_id = p.id AND m.type='OUT'
-          AND m.movement_date >= now() - ($1::int || ' days')::interval
-        WHERE p.active = TRUE
-        GROUP BY p.code, p.name, p.quantity, p.alert_level
+          AND m.establishment_id = p.establishment_id
+           AND m.movement_date >= now() - ($1::int || ' days')::interval
+           AND ${tenantPredicate('m')}
+        WHERE ${tenantPredicate('p')} AND p.active = TRUE
+         GROUP BY p.code, p.name, p.quantity, p.alert_level
         ORDER BY total_out DESC LIMIT $2`,
       params,
     );

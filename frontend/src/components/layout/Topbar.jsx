@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 
 const TITLES = [
+  ['/superadmin', 'Administración general'],
   ['/', 'Panel principal'],
   ['/productos', 'Productos'],
   ['/movimientos', 'Movimientos de inventario'],

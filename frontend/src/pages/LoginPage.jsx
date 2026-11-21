@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.jsx';
+import { homePathFor, useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { errorMessage } from '../api/client.js';
 import Button from '../components/ui/Button.jsx';
@@ -17,7 +17,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [validation, setValidation] = useState('');
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={homePathFor(user)} replace />;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -28,9 +28,9 @@ export default function LoginPage() {
     }
     setSubmitting(true);
     try {
-      await login(form);
+      const loggedUser = await login(form);
       success('Bienvenido a STOCKALERT');
-      navigate(location.state?.from?.pathname || '/', { replace: true });
+      navigate(location.state?.from?.pathname || homePathFor(loggedUser), { replace: true });
     } catch (err) {
       notifyError(errorMessage(err));
     } finally {
@@ -107,12 +107,6 @@ export default function LoginPage() {
               Ingresar al sistema
             </Button>
           </form>
-
-          <div className="demo-hint">
-            <strong>Credenciales de demostración</strong>
-            <span>admin@stockalert.local · encargado@stockalert.local · consulta@stockalert.local</span>
-            <span>Contraseña: Demo1234!</span>
-          </div>
         </div>
       </div>
     </div>

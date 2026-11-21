@@ -4,19 +4,49 @@ const bcrypt = require('bcryptjs');
 const usersRepository = require('../repositories/users.repository');
 const ApiError = require('../utils/ApiError');
 const { publicUser } = require('./auth.service');
+const { isSuperAdmin } = require('../config/permissions');
 
-async function list(filters) {
+function assertManager(actor) {
+  if (!isSuperAdmin(actor?.role)) {
+    throw ApiError.forbidden('Solo el superadministrador puede administrar cuentas');
+  }
+}
+
+function assertManageable(user) {
+  if (isSuperAdmin(user?.role)) {
+    throw ApiError.forbidden('La cuenta superadministrador no puede ser modificada desde el panel');
+  }
+}
+
+async function list(filters, actor) {
+  assertManager(actor);
   const result = await usersRepository.findAll(filters);
   return { rows: result.rows.map(publicUser), total: result.total };
 }
 
-async function get(id) {
+async function options(actor) {
+  if (isSuperAdmin(actor?.role)) return [];
+  if (actor?.establishment_id == null) {
+    throw ApiError.forbidden('El usuario no tiene un establecimiento asignado');
+  }
+  return usersRepository.findTenantOptions();
+}
+
+async function get(id, actor) {
+  assertManager(actor);
   const user = await usersRepository.findById(id);
   if (!user) throw ApiError.notFound('Usuario no encontrado');
   return publicUser(user);
 }
 
-async function create(data) {
+async function create(data, actor) {
+  assertManager(actor);
+  if (isSuperAdmin(data.role)) {
+    throw ApiError.forbidden('No se pueden crear superadministradores desde el panel');
+  }
+  if (!data.establishmentId) {
+    throw ApiError.badRequest('Debe asignar un establecimiento al usuario');
+  }
   const existing = await usersRepository.findByEmail(data.email);
   if (existing) throw ApiError.conflict('Ya existe un usuario con ese correo', 'DUPLICATE_EMAIL');
   const user = await usersRepository.create({
@@ -24,11 +54,19 @@ async function create(data) {
     email: data.email.toLowerCase(),
     passwordHash: await bcrypt.hash(data.password, 12),
   });
-  return get(user.id);
+  return get(user.id, actor);
 }
 
-async function update(id, fields) {
-  await get(id);
+async function update(id, fields, actor) {
+  assertManager(actor);
+  const target = await get(id, actor);
+  assertManageable(target);
+  if (isSuperAdmin(fields.role)) {
+    throw ApiError.forbidden('No se pueden asignar privilegios de superadministrador desde el panel');
+  }
+  if (fields.establishmentId === null || fields.establishmentId === '') {
+    throw ApiError.badRequest('Todo usuario debe pertenecer a un establecimiento');
+  }
   if (fields.email) {
     const other = await usersRepository.findByEmail(fields.email);
     if (other && Number(other.id) !== Number(id)) {
@@ -38,14 +76,22 @@ async function update(id, fields) {
   return usersRepository.update(id, fields);
 }
 
-async function setActive(id, active) {
-  await get(id);
+async function setActive(id, active, actor) {
+  assertManager(actor);
+  const target = await get(id, actor);
+  assertManageable(target);
   return usersRepository.update(id, { active });
 }
 
-async function resetPassword(id, password) {
-  await get(id);
-  await usersRepository.setPassword(id, await bcrypt.hash(password, 12));
+async function resetPassword(id, password, actor) {
+  assertManager(actor);
+  const target = await get(id, actor);
+  assertManageable(target);
+  await usersRepository.setPassword(id, await bcrypt.hash(password, 12), {
+    mustChangePassword: true,
+  });
 }
 
-module.exports = { list, get, create, update, setActive, resetPassword };
+module.exports = {
+  list, options, get, create, update, setActive, resetPassword,
+};

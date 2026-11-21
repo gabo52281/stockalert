@@ -8,8 +8,10 @@ class ApiError extends Error {
     this.details = details;
   }
 
-  static badRequest(message = 'Solicitud inválida', details) {
-    return new ApiError(400, 'BAD_REQUEST', message, details);
+  static badRequest(message = 'Solicitud inválida', detailsOrCode, details) {
+    const code = typeof detailsOrCode === 'string' ? detailsOrCode : 'BAD_REQUEST';
+    const extra = typeof detailsOrCode === 'string' ? details : detailsOrCode;
+    return new ApiError(400, code, message, extra);
   }
 
   static unauthorized(message = 'Credenciales inválidas') {

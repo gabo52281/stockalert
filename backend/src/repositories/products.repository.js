@@ -1,6 +1,7 @@
 'use strict';
 
 const { query } = require('../config/database');
+const { tenantPredicate } = require('../config/tenant');
 const ApiError = require('../utils/ApiError');
 
 const COLUMNS = `
@@ -37,7 +38,8 @@ async function findAll(filters) {
     values.push(filters.supplierId);
     where.push(`(supplier_id = $${values.length} OR EXISTS (
       SELECT 1 FROM product_suppliers ps WHERE ps.product_id = v_product_inventory.id
-       AND ps.supplier_id = $${values.length}))`);
+       AND ps.supplier_id = $${values.length}
+       AND ${tenantPredicate('ps')}))`);
   }
   if (filters.status === 'active') where.push('active = TRUE');
   if (filters.status === 'inactive') where.push('active = FALSE');
@@ -46,7 +48,7 @@ async function findAll(filters) {
     where.push(`alert_level = $${values.length}`);
   }
 
-  const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const clause = `WHERE ${[tenantPredicate('v_product_inventory'), ...where].join(' AND ')}`;
   const order = filters.alertLevel
     ? `${LEVEL_PRIORITY}, ${SORT_MAP[filters.sortBy]} ${filters.sortDir}`
     : `${SORT_MAP[filters.sortBy]} ${filters.sortDir}, id`;
@@ -64,22 +66,27 @@ async function findAll(filters) {
 
 async function findById(id) {
   const { rows } = await query(
-    `SELECT ${COLUMNS} FROM v_product_inventory WHERE id = $1`,
+    `SELECT ${COLUMNS} FROM v_product_inventory
+      WHERE id = $1 AND ${tenantPredicate('v_product_inventory')}`,
     [id],
   );
   return rows[0] || null;
 }
 
 async function findByCode(code) {
-  const { rows } = await query('SELECT id FROM products WHERE lower(code) = lower($1)', [code]);
+  const { rows } = await query(
+    `SELECT id FROM products
+      WHERE lower(code) = lower($1) AND ${tenantPredicate('products')}`,
+    [code],
+  );
   return rows[0] || null;
 }
 
 async function create(data) {
   const { rows } = await query(
-    `INSERT INTO products (code, name, description, category_id, supplier_id,
-       purchase_price, sale_price, quantity, min_stock, alert_percentage, active)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10)
+    `INSERT INTO products (establishment_id, code, name, description, category_id,
+       supplier_id, purchase_price, sale_price, quantity, min_stock, alert_percentage, active)
+     VALUES (fn_app_establishment_id(),$1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10)
      RETURNING id`,
     [data.code, data.name, data.description || null, data.categoryId || null,
       data.supplierId || null, data.purchasePrice, data.salePrice,
@@ -104,19 +111,29 @@ async function update(id, fields) {
   }
 
   if (!sets.length) return findById(id);
-  await query(`UPDATE products SET ${sets.join(', ')} WHERE id = $1`, values);
+  await query(
+    `UPDATE products SET ${sets.join(', ')}
+      WHERE id = $1 AND ${tenantPredicate('products')}`,
+    values,
+  );
   return findById(id);
 }
 
 async function setActive(id, active) {
-  await query('UPDATE products SET active = $1 WHERE id = $2', [active, id]);
+  await query(
+    `UPDATE products SET active = $1
+      WHERE id = $2 AND ${tenantPredicate('products')}`,
+    [active, id],
+  );
   return findById(id);
 }
 
 async function setAlertSettings(id, settings) {
   await query(
-    `INSERT INTO product_alert_settings (product_id, preventive_percentage, analysis_window_days, min_history_days)
-     VALUES ($1,$2,$3,$4)
+    `INSERT INTO product_alert_settings
+       (product_id, establishment_id, preventive_percentage, analysis_window_days, min_history_days)
+     SELECT id, establishment_id, $2, $3, $4
+       FROM products WHERE id = $1 AND ${tenantPredicate('products')}
      ON CONFLICT (product_id) DO UPDATE SET
        preventive_percentage = EXCLUDED.preventive_percentage,
        analysis_window_days = EXCLUDED.analysis_window_days,
@@ -128,7 +145,8 @@ async function setAlertSettings(id, settings) {
 
 async function hasMovements(id) {
   const { rows } = await query(
-    'SELECT count(*)::int AS n FROM inventory_movements WHERE product_id = $1',
+    `SELECT count(*)::int AS n FROM inventory_movements
+      WHERE product_id = $1 AND ${tenantPredicate('inventory_movements')}`,
     [id],
   );
   return rows[0].n > 0;
@@ -141,7 +159,10 @@ async function remove(id) {
       'PRODUCT_HAS_MOVEMENTS',
     );
   }
-  await query('DELETE FROM products WHERE id = $1', [id]);
+  await query(
+    `DELETE FROM products WHERE id = $1 AND ${tenantPredicate('products')}`,
+    [id],
+  );
 }
 
 module.exports = {

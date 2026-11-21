@@ -45,7 +45,7 @@ export default function MovementsPage() {
 
   const { data: productsData } = useApi(() => productsApi.list({ status: 'active', limit: 100 }), []);
   const { data: suppliersData } = useApi(() => suppliersApi.list({ status: 'active', limit: 100 }), []);
-  const { data: usersData } = useApi(() => usersApi.list({ limit: 100 }), []);
+  const { data: usersData } = useApi(() => usersApi.options(), []);
 
   const selectedProduct = (id) => productsData?.data?.find((product) => String(product.id) === String(id));
 

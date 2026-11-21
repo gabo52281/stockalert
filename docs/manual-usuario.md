@@ -2,26 +2,34 @@
 
 ## 1. Acceso
 
-Abra `http://localhost:5173` e ingrese con su correo y contraseña. El sistema valida la sesión contra la API; si el token vence o fue revocado, lo devuelve al login.
+Abra `http://localhost:5173` e ingrese con el correo y la contraseña que le entregó su administrador. No hay cartel de demostración, usuarios demo ni registro público: `npm run seed` está deshabilitado y el sistema valida la sesión contra la API. Si el token vence o fue revocado, la aplicación lo devuelve al login.
 
-Usuarios demo (solo en entornos de demostración):
+En el **primer inicio de sesión** debe cambiar la contraseña desde **Perfil**: mientras `must_change_password` esté activo, la aplicación lo redirige a `/perfil`. Las contraseñas se guardan como hashes bcrypt y nunca se muestran. Si su cuenta se desactiva o su establecimiento se desactiva, no podrá ingresar.
 
-| Correo | Rol | Qué puede hacer |
+Después del login, `/auth/me` hidrata los permisos de todos los roles y la aplicación abre la página inicial según el rol:
+
+| Rol | Ruta inicial | Qué puede hacer |
 | --- | --- | --- |
-| `admin@stockalert.local` | Administrador | Todo, incluida la gestión de usuarios |
-| `encargado@stockalert.local` | Encargado de inventario | Catálogos, movimientos, alertas, indicadores y reportes |
-| `consulta@stockalert.local` | Consulta | Solo lectura y exportación |
-| `inactivo@stockalert.local` | — | No puede ingresar |
+| `SUPERADMINISTRADOR` | `/superadmin` | Gestiona establecimientos y cuentas y consulta estadísticas globales. No tiene acceso a inventario ni a IA. |
+| `ADMINISTRADOR` | `/` | Inventario completo dentro de su establecimiento. No gestiona cuentas. |
+| `ENCARGADO_INVENTARIO` | `/movimientos` | Catálogos, movimientos, alertas, indicadores y reportes dentro de su establecimiento. No gestiona cuentas. |
+| `CONSULTA` | `/` | Solo lectura y exportación dentro de su establecimiento. |
 
-Contraseña demo: `Demo1234!`.
+Todo lo que ve —productos, movimientos, alertas y reportes— pertenece a su establecimiento. El sistema toma el establecimiento del token validado en servidor, no de la página que esté visitando.
 
-En un entorno real no se cargan estos usuarios: el administrador se crea con `npm run admin` usando `SEED_ADMIN_*` del `.env` raíz.
+Si participa en pruebas, las credenciales se definen en variables de entorno de una fixture local (`TEST_*` para integración, `E2E_*` para navegador); no hay credenciales de prueba escritas en esta guía.
 
-## 2. Panel principal
+## 2. Panel de administración general (`/superadmin`)
 
-Muestra cuatro tarjetas (referencias activas, unidades disponibles, productos en atención y valor del inventario), gráficas de entradas/salidas y distribución de estados, movimientos recientes y una lista de productos que requieren atención. El selector de 7/30/90 días cambia el período de las series.
+Disponible solo para `SUPERADMINISTRADOR`. Desde aquí se crean y desactivan establecimientos, se asigna un administrador a cada uno y se gestionan las cuentas de todos ellos (alta, rol, activación y restablecimiento de contraseña). También se consultan estadísticas globales del sistema.
 
-## 3. Productos
+El superadministrador **no** ve inventario de ningún establecimiento ni usa el Asistente IA. La promoción a superadministrador no se hace desde la interfaz: es un paso manual y autorizado con `npm run promote:superadmin`, que no modifica la contraseña de la cuenta.
+
+## 3. Panel principal
+
+Muestra cuatro tarjetas (referencias activas, unidades disponibles, productos en atención y valor del inventario), gráficas de entradas/salidas y distribución de estados, movimientos recientes y una lista de productos que requieren atención. El selector de 7/30/90 días cambia el período de las series. Los datos corresponden únicamente a su establecimiento.
+
+## 4. Productos
 
 - **Nuevo producto:** código único, nombre, descripción, categoría, proveedor, precios, stock mínimo y porcentaje preventivo. Se crea con existencia **0**; el stock se asigna con una entrada.
 - **Editar:** modifica datos del catálogo. No cambia existencias directamente.
@@ -31,20 +39,20 @@ Muestra cuatro tarjetas (referencias activas, unidades disponibles, productos en
 
 Filtros: búsqueda por nombre o código, categoría, estado de alerta y estado activo/inactivo.
 
-## 4. Categorías y proveedores
+## 5. Categorías y proveedores
 
 Permiten crear, editar, desactivar y eliminar catálogos auxiliares. La eliminación se rechaza si existen dependencias que romperían la integridad del historial. En proveedores se puede consultar el listado de productos asociados.
 
-## 5. Movimientos
+## 6. Movimientos
 
 - **Entrada (IN):** seleccione producto, cantidad, proveedor (opcional), fecha y notas. Aumenta la existencia.
 - **Salida (OUT):** seleccione producto, cantidad, **motivo obligatorio**, fecha y notas. Disminuye la existencia. Si la cantidad supera el stock, la API responde `409 INSUFFICIENT_STOCK` y no se registra nada.
 
-Cada movimiento queda registrado con stock anterior y resultante, usuario que lo ejecuta y timestamp. No se pueden editar ni borrar movimientos: para corregir un error, registre un movimiento compensatorio.
+Cada movimiento queda registrado con stock anterior y resultante, usuario que lo ejecuta y timestamp. No se pueden editar ni borrar movimientos: para corregir un error, registre un movimiento compensatorio. El usuario y el producto deben pertenecer al mismo establecimiento.
 
 Filtros por tipo, producto, usuario y rango de fechas.
 
-## 6. Alertas
+## 7. Alertas
 
 Muestra la lista de productos que requieren atención, ordenada por severidad, con:
 
@@ -59,7 +67,7 @@ El umbral preventivo es `mínimo × (1 + porcentaje / 100)`. Con mínimo 0 y sto
 
 El resumen muestra cuántos productos hay en cada estado. Al abrir el detalle de un producto se ven su cobertura, promedio de salidas y configuración efectiva.
 
-## 7. Indicadores
+## 8. Indicadores
 
 Calcula, sobre una ventana de días configurable:
 
@@ -71,30 +79,32 @@ Si no hay salidas, se muestra **No calculable**; si el historial es más corto q
 
 La tabla de cobertura se ordena por menor cobertura para priorizar decisiones.
 
-## 8. Asistente IA
+## 9. Asistente IA
 
-Disponible en el menú **Asistente IA** (`/ia`) para roles con permiso `indicators:read`.
+Disponible en el menú **Asistente IA** (`/ia`) para roles con permiso `indicators:read`; el superadministrador no lo tiene.
 
 1. Elija la ventana de análisis (7, 30 o 90 días) y el tiempo de reposición (7, 14, 21 o 30 días).
 2. Revise las tarjetas: productos analizados, riesgo alto/crítico, unidades a reponer e inversión estimada.
 3. Lea el resumen y la tabla **Plan de reposición sugerido**: muestra demanda diaria estimada, cobertura, punto de pedido, cantidad sugerida, riesgo y confianza.
 4. Consulte **Anomalías detectadas** para identificar picos de salida atípicos.
 
-El cálculo es local y explicable: usa sus propios movimientos, no envía datos a servicios externos y no sustituye las alertas oficiales de stock mínimo. La recomendación es una sugerencia; las decisiones de compra las toma el usuario.
+El cálculo de apoyo es local y explicable: usa los movimientos de su establecimiento y no sustituye las alertas oficiales de stock mínimo. El **copiloto conversacional**, en cambio, no genera respuestas por reglas locales: usa exclusivamente OpenRouter en su modalidad gratuita. Antes de enviar nada, la interfaz le pide **consentimiento**; si lo autoriza, el backend envía a OpenRouter un resumen agregado de su establecimiento (cifras de productos y movimientos, sin datos personales) para redactar la respuesta. Si no hay clave configurada o no autoriza el envío, verá el aviso **IA temporalmente fuera de servicio**. No hay respuestas locales ni modelos de pago. La recomendación es una sugerencia; las decisiones de compra las toma el usuario.
 
-## 9. Reportes
+## 10. Reportes
 
 1. Seleccione el tipo de reporte (inventario, stock bajo, críticos, entradas, salidas, movimientos por rango/usuario, mayores salidas, cobertura o valoración).
 2. Aplique filtros de fechas, producto, categoría, usuario o tipo de movimiento.
 3. Use **Aplicar filtros** para actualizar la vista previa.
-4. Descargue **CSV** o **PDF** con los mismos filtros.
+4. Descargue **CSV**, **PDF** o **JSON** con los mismos filtros.
 
-Los archivos se generan en el backend con datos reales. El CSV incluye BOM para abrirse correctamente en Excel.
+Los 10 reportes se generan en el backend con datos reales de su establecimiento. El CSV incluye BOM para abrirse correctamente en Excel.
 
-## 10. Usuarios y perfil
+## 11. Usuarios y perfil
 
-El administrador puede crear usuarios, asignar uno de los tres roles, activar/desactivar cuentas y restablecer contraseñas. Cualquier usuario puede cambiar su propia contraseña desde **Perfil**.
+Desde `/superadmin`, el superadministrador crea usuarios para cada establecimiento, asigna uno de los cuatro roles, activa/desactiva cuentas y restablece contraseñas. Los roles `ADMINISTRADOR` y `ENCARGADO_INVENTARIO` **no** gestionan cuentas de otros usuarios.
 
-## 11. Cierre de sesión
+Cualquier usuario puede cambiar su propia contraseña desde **Perfil**; hacerlo obliga a iniciar sesión de nuevo porque se invalida la versión de la contraseña. Los hashes nunca se muestran.
+
+## 12. Cierre de sesión
 
 El botón de usuario → **Cerrar sesión** revoca el token en el servidor. Cerrar la pestaña sin hacer logout deja el token en el navegador hasta que venza.
