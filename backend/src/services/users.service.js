@@ -5,12 +5,7 @@ const usersRepository = require('../repositories/users.repository');
 const ApiError = require('../utils/ApiError');
 const { publicUser } = require('./auth.service');
 const { isSuperAdmin } = require('../config/permissions');
-
-function assertManager(actor) {
-  if (!isSuperAdmin(actor?.role)) {
-    throw ApiError.forbidden('Solo el superadministrador puede administrar cuentas');
-  }
-}
+const requireSuperAdmin = require('../utils/requireSuperAdmin');
 
 function assertManageable(user) {
   if (isSuperAdmin(user?.role)) {
@@ -19,7 +14,7 @@ function assertManageable(user) {
 }
 
 async function list(filters, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const result = await usersRepository.findAll(filters);
   return { rows: result.rows.map(publicUser), total: result.total };
 }
@@ -33,14 +28,14 @@ async function options(actor) {
 }
 
 async function get(id, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const user = await usersRepository.findById(id);
   if (!user) throw ApiError.notFound('Usuario no encontrado');
   return publicUser(user);
 }
 
 async function create(data, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   if (isSuperAdmin(data.role)) {
     throw ApiError.forbidden('No se pueden crear superadministradores desde el panel');
   }
@@ -58,7 +53,7 @@ async function create(data, actor) {
 }
 
 async function update(id, fields, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const target = await get(id, actor);
   assertManageable(target);
   if (isSuperAdmin(fields.role)) {
@@ -77,14 +72,14 @@ async function update(id, fields, actor) {
 }
 
 async function setActive(id, active, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const target = await get(id, actor);
   assertManageable(target);
   return usersRepository.update(id, { active });
 }
 
 async function resetPassword(id, password, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const target = await get(id, actor);
   assertManageable(target);
   await usersRepository.setPassword(id, await bcrypt.hash(password, 12), {

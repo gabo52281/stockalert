@@ -5,58 +5,52 @@ const repository = require('../repositories/establishments.repository');
 const usersRepository = require('../repositories/users.repository');
 const { transaction, runAsSystem } = require('../config/database');
 const ApiError = require('../utils/ApiError');
-const { isSuperAdmin } = require('../config/permissions');
-
-function assertManager(actor) {
-  if (!isSuperAdmin(actor?.role)) {
-    throw ApiError.forbidden('Esta sección es exclusiva del superadministrador');
-  }
-}
+const requireSuperAdmin = require('../utils/requireSuperAdmin');
 
 async function list(filters, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const result = await repository.findAll(filters);
   return { rows: result.rows, total: result.total };
 }
 
 async function get(id, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const establishment = await repository.findById(id);
   if (!establishment) throw ApiError.notFound('Establecimiento no encontrado');
   return establishment;
 }
 
 async function create(data, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   return transaction((client) => repository.create(data, client)
     .then((created) => repository.createDefaultSettings(created.id, client).then(() => created)));
 }
 
 async function update(id, fields, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   await get(id, actor);
   return repository.update(id, fields);
 }
 
 async function setActive(id, active, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   await get(id, actor);
   return repository.setActive(id, active);
 }
 
 async function usersFor(id, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   await get(id, actor);
   return repository.usersFor(id);
 }
 
 async function stats(actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   return repository.stats();
 }
 
 async function createWithAdmin(data, actor) {
-  assertManager(actor);
+  requireSuperAdmin(actor);
   const existing = await runAsSystem(() => usersRepository.findByEmail(data.admin.email));
   if (existing) throw ApiError.conflict('Ya existe un usuario con ese correo', 'DUPLICATE_EMAIL');
 

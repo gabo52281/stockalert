@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ArrowLeftRight, BellRing, ChartNoAxesCombined,
-  Tags, Truck, FileBarChart, Users, UserRound, ShieldCheck, X, BrainCircuit, Building2,
+  Tags, Truck, FileBarChart, UserRound, ShieldCheck, X, BrainCircuit, Building2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../ui/Badge.jsx';
@@ -17,7 +17,6 @@ const NAV = [
   { to: '/categorias', label: 'Categorías', icon: Tags, permission: 'categories:read' },
   { to: '/proveedores', label: 'Proveedores', icon: Truck, permission: 'suppliers:read' },
   { to: '/reportes', label: 'Reportes', icon: FileBarChart, permission: 'reports:read' },
-  { to: '/usuarios', label: 'Usuarios', icon: Users, permission: 'users:read' },
   { to: '/perfil', label: 'Mi perfil', icon: UserRound, permission: 'profile:read' },
 ];
 

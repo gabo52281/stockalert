@@ -101,7 +101,13 @@ Los 10 reportes se generan en el backend con datos reales de su establecimiento.
 
 ## 11. Usuarios y perfil
 
-Desde `/superadmin`, el superadministrador crea usuarios para cada establecimiento, asigna uno de los cuatro roles, activa/desactiva cuentas y restablece contraseñas. Los roles `ADMINISTRADOR` y `ENCARGADO_INVENTARIO` **no** gestionan cuentas de otros usuarios.
+Desde `/superadmin`, el superadministrador trabaja en una única pantalla con tres pestañas: **Resumen**, **Establecimientos** y **Usuarios y permisos**.
+
+En la pestaña **Usuarios y permisos** puede crear usuarios, asignarles obligatoriamente un establecimiento, elegir uno de los tres roles gestionables (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` o `CONSULTA`), activar/desactivar cuentas y restablecer contraseñas. Los usuarios se muestran agrupados por establecimiento; el interruptor permite volver a una lista paginada con filtros por rol, estado y comercio.
+
+La cuenta `SUPERADMINISTRADOR` aparece sola en el grupo “Sin establecimiento” y no se puede editar, desactivar ni restablecer desde el panel. Los roles `ADMINISTRADOR` y `ENCARGADO_INVENTARIO` **no** gestionan cuentas de otros usuarios.
+
+La antigua ruta `/usuarios` redirige automáticamente a `/superadmin?tab=usuarios` para no romper enlaces guardados.
 
 Cualquier usuario puede cambiar su propia contraseña desde **Perfil**; hacerlo obliga a iniciar sesión de nuevo porque se invalida la versión de la contraseña. Los hashes nunca se muestran.
 

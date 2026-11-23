@@ -15,7 +15,6 @@ const TITLES = [
   ['/categorias', 'Categorías'],
   ['/proveedores', 'Proveedores'],
   ['/reportes', 'Reportes'],
-  ['/usuarios', 'Usuarios'],
   ['/perfil', 'Mi perfil'],
 ];
 
