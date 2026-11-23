@@ -15,7 +15,7 @@ Después del login, `/auth/me` hidrata los permisos de todos los roles y la apli
 | `ENCARGADO_INVENTARIO` | `/movimientos` | Catálogos, movimientos, alertas, indicadores y reportes dentro de su establecimiento. No gestiona cuentas. |
 | `CONSULTA` | `/` | Solo lectura y exportación dentro de su establecimiento. |
 
-Todo lo que ve —productos, movimientos, alertas y reportes— pertenece a su establecimiento. El sistema toma el establecimiento del token validado en servidor, no de la página que esté visitando.
+Todo lo que ve —productos, movimientos, alertas y reportes— pertenece a su establecimiento. El sistema toma el establecimiento del token validado en servidor, no de la página que esté visitando. Las cuentas con establecimiento asignado ven su nombre en una pastilla identificativa en la barra superior, visible en todas las pantallas; la cuenta `SUPERADMINISTRADOR`, que no pertenece a ningún comercio, no la muestra.
 
 Si participa en pruebas, las credenciales se definen en variables de entorno de una fixture local (`TEST_*` para integración, `E2E_*` para navegador); no hay credenciales de prueba escritas en esta guía.
 

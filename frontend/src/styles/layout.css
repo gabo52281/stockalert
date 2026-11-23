@@ -120,6 +120,35 @@
   border: 2px solid var(--surface);
 }
 
+/* Establecimiento del usuario --------------------------------------------- */
+.tenant-pill {
+  display: flex; align-items: center; gap: 9px;
+  min-width: 0;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--blue-100);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--blue-50), #F0FDFA);
+  box-shadow: var(--shadow-sm);
+}
+.tenant-pill__icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--blue-600), var(--cyan-500));
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.22);
+}
+.tenant-pill__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.tenant-pill__label {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--blue-600);
+}
+.tenant-pill__name {
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.78rem; font-weight: 700; color: var(--navy-800);
+}
+
 .avatar {
   width: 36px; height: 36px;
   border-radius: 50%;
@@ -184,6 +213,8 @@
     z-index: 45;
   }
   .topbar__menu { display: grid !important; }
+  .tenant-pill { padding: 4px 10px 4px 5px; gap: 7px; }
+  .tenant-pill__name { max-width: 130px; }
 }
 
 @media (max-width: 640px) {
@@ -192,5 +223,10 @@
   .topbar h2 { font-size: 0.92rem; }
   .topbar__eyebrow { display: none; }
   .user-menu__name { display: none; }
+  .tenant-pill { padding: 3px 8px 3px 4px; gap: 6px; }
+  .tenant-pill__icon { width: 24px; height: 24px; }
+  .tenant-pill__icon svg { width: 13px; height: 13px; }
+  .tenant-pill__label { display: none; }
+  .tenant-pill__name { max-width: 88px; font-size: 0.7rem; }
   .app-content { padding: 18px 14px 32px; }
 }

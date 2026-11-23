@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Menu, UserRound } from 'lucide-react';
+import { Bell, Building2, LogOut, Menu, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 
@@ -27,6 +27,8 @@ export default function Topbar({ onMenu, alertCount = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const title = TITLES.find(([path]) => path === pathname)?.[1] || 'STOCKALERT';
+  const establishmentLabel = user?.establishmentName
+    || (user?.establishmentId ? `Establecimiento #${user.establishmentId}` : null);
 
   const handleLogout = async () => {
     await logout();
@@ -47,6 +49,16 @@ export default function Topbar({ onMenu, alertCount = 0 }) {
       </div>
 
       <div className="topbar__right">
+        {establishmentLabel && (
+          <div className="tenant-pill" title={`Establecimiento: ${establishmentLabel}`}>
+            <span className="tenant-pill__icon"><Building2 size={15} /></span>
+            <span className="tenant-pill__text">
+              <span className="tenant-pill__label">Establecimiento</span>
+              <span className="tenant-pill__name">{establishmentLabel}</span>
+            </span>
+          </div>
+        )}
+
         {canReadAlerts && (
           <NavLink to="/alertas" className="topbar__bell" aria-label="Ver alertas">
             <Bell size={19} />
