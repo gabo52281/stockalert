@@ -44,7 +44,7 @@ async function authenticate(req, _res, next) {
     const { rows } = await runAsSystem(() => query(
       `SELECT u.id, u.name, u.email, u.active, u.establishment_id,
               u.password_version, r.name AS role,
-              e.active AS establishment_active
+              e.name AS establishment_name, e.active AS establishment_active
          FROM users u JOIN roles r ON r.id = u.role_id
          LEFT JOIN establishments e ON e.id = u.establishment_id
         WHERE u.id = $1`,

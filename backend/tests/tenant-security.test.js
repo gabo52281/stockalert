@@ -162,10 +162,12 @@ describeDatabase('Aislamiento multiempresa (20+ comprobaciones de seguridad)', (
     expect(meA.status).toBe(200);
     expect(meA.body.data.permissions).toContain('products:create');
     expect(meA.body.data.establishmentId).toBe(codes.establishmentA);
+    expect(meA.body.data.establishmentName).toBe(`Tenant A ${suffix}`);
 
     const meSuper = await request(app).get('/api/auth/me').set(auth(tokens.super));
     expect(meSuper.body.data.permissions).toContain('users:read');
     expect(meSuper.body.data.permissions).not.toContain('products:read');
+    expect(meSuper.body.data.establishmentName).toBeNull();
   });
 
   it('2. el listado de productos solo muestra los del establecimiento autenticado', async () => {
