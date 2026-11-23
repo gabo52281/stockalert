@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 import { alertsApi } from '../../api/endpoints.js';
@@ -7,9 +7,11 @@ import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function AppLayout() {
   const { hasPermission } = useAuth();
+  const location = useLocation();
   const canReadAlerts = hasPermission('alerts:read');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
+  const isChatPage = location.pathname === '/ia';
 
   useEffect(() => {
     let active = true;
@@ -33,7 +35,7 @@ export default function AppLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} alertCount={alertCount} />
       <div className="app-main">
         <Topbar onMenu={() => setSidebarOpen(true)} alertCount={alertCount} />
-        <main className="app-content">
+        <main className={`app-content${isChatPage ? ' app-content--chat' : ''}`}>
           <Outlet />
         </main>
       </div>

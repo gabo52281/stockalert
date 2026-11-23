@@ -145,6 +145,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Actualizadas las pruebas unitarias del chat, la prueba de API, el E2E opcional y toda la documentación para reflejar OpenAI y el nuevo flujo sin consentimiento.
 - El módulo Asistente IA se simplificó a **solo chat**: se eliminaron las tarjetas de resumen, la tabla técnica y el desplegable de cálculo. El chat tiene burbujas redondeadas, avatares, preguntas rápidas y alto fijo con scroll.
 - Corregidas las respuestas "feas": el prompt prohíbe Markdown, encabezados, negritas y listas; exige prosa natural en 2–4 frases, sin inventar ni combinar cifras. El backend elimina cualquier Markdown que el modelo devuelva y el frontend lo muestra como texto plano.
+- El chat ocupa todo el alto del viewport: solo se desplaza el historial de mensajes y el campo de escritura queda siempre visible, sin tener que bajar con scroll. `AppLayout` marca la ruta `/ia` para aplicar este comportamiento sin afectar otros módulos.
 
 ## Resultados reales finales
 
