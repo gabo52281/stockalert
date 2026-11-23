@@ -148,6 +148,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - El chat ocupa todo el alto del viewport: solo se desplaza el historial de mensajes y el campo de escritura queda siempre visible, sin tener que bajar con scroll. `AppLayout` marca la ruta `/ia` para aplicar este comportamiento sin afectar otros módulos.
 - Corregidos los botones de acciones de `/superadmin`: la regla global `.row-actions button` los forzaba a 30×30 px (diseñada para iconos), por lo que las etiquetas “Editar”, “Ver usuarios”, “Contraseña” y “Desactivar” se apilaban verticalmente. El estilo de icono se aisló en `.row-actions--icons` para productos, categorías, proveedores y usuarios; `/superadmin` conserva botones de texto en una sola fila.
 - El selector de establecimiento del formulario de usuarios usaba la misma búsqueda y paginación que la tabla, por lo que podía aparecer vacío. Ahora carga hasta 100 establecimientos activos de forma independiente y, al crear un usuario desde un filtro de establecimiento, ese valor se precarga.
+- Corregida la pantalla legacy `/usuarios` (“Usuarios y permisos”): su modal “Nuevo usuario” no enviaba `establishmentId` (el backend lo exige y devolvía 400) y su tabla no mostraba el establecimiento. Ahora exige y envía el establecimiento, ofrece filtro/columna por comercio e incluye una vista agrupada por establecimiento con interruptor para volver al listado paginado.
 
 ## Resultados reales finales
 
