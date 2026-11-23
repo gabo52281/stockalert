@@ -72,6 +72,12 @@ export default function SuperadminPage() {
     () => superadminApi.establishments({ page, limit: 10, q: debouncedQ }),
     [page, debouncedQ],
   );
+  // Las opciones del formulario no deben depender de la búsqueda ni de la
+  // paginación de la tabla: si no, el selector aparece vacío al buscar usuarios.
+  const establishmentChoices = useApi(
+    () => superadminApi.establishments({ page: 1, limit: 100, active: 'true' }),
+    [],
+  );
   const users = useApi(
     () => superadminApi.allUsers({
       page, limit: 10, q: debouncedQ, role: role || undefined,
@@ -80,9 +86,9 @@ export default function SuperadminPage() {
     [page, debouncedQ, role, establishmentFilter],
   );
 
-  const establishmentOptions = establishments.data?.data || [];
+  const establishmentOptions = establishmentChoices.data?.data || [];
   const userRows = users.data?.data || [];
-  const establishmentRows = establishmentOptions;
+  const establishmentRows = establishments.data?.data || [];
 
   const establishmentColumns = [
     { key: 'id', label: 'ID', render: (row) => <span className="mono">#{row.id}</span> },
@@ -213,7 +219,9 @@ export default function SuperadminPage() {
       email: row?.email || '',
       password: '',
       role: row?.role || 'ENCARGADO_INVENTARIO',
-      establishmentId: row?.establishment_id ? String(row.establishment_id) : '',
+      establishmentId: row?.establishment_id
+        ? String(row.establishment_id)
+        : (establishmentFilter ? String(establishmentFilter) : ''),
       active: row?.active ?? true,
     });
     setErrors({});
