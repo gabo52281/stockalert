@@ -106,8 +106,8 @@ async function stats(client) {
 async function createAdminForEstablishment(establishmentId, admin, passwordHash, client) {
   const { rows } = await run(
     client,
-    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id, must_change_password)
-     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'), TRUE, $4, TRUE)
+    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id)
+     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = 'ADMINISTRADOR'), TRUE, $4)
      RETURNING id, name, email, active, establishment_id`,
     [admin.name, admin.email.toLowerCase(), passwordHash, establishmentId],
   );

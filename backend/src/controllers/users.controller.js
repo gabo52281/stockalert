@@ -38,7 +38,7 @@ async function resetPassword(req, res) {
   await service.resetPassword(
     req.validated.params.id, req.validated.body.password, req.user,
   );
-  return ok(res, { message: 'Contraseña restablecida. El usuario deberá cambiarla al ingresar.' });
+  return ok(res, { message: 'Contraseña restablecida. Se cerraron las sesiones anteriores.' });
 }
 
 module.exports = { list, options, get, create, update, setActive, resetPassword };

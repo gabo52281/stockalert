@@ -29,8 +29,8 @@ async function sql(text, params, establishmentId = null) {
 async function createUser({ name, email, role, establishmentId = null }) {
   const hash = await bcrypt.hash(password, 10);
   const { rows } = await sql(
-    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id, must_change_password)
-     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), TRUE, $5, FALSE)
+    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id)
+     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), TRUE, $5)
      RETURNING id`,
     [name, email, hash, role, establishmentId],
   );

@@ -14,10 +14,11 @@ Motor: PostgreSQL administrado en **Neon** (PostgreSQL 14+). No hay PostgreSQL l
 | `006_tenant_foreign_keys.sql` | Foreign keys compuestas `(establishment_id, id)` para impedir relaciones entre tenants |
 | `007_tenant_defaults.sql` | Defaults de `establishment_id` desde el GUC validado por transacción |
 | `008_harden_tenant_boundaries.sql` | Activa RLS en `establishments`, endurece RLS (superadmin sin inventario), refuerza `fn_register_movement()` y añade la FK movimientos-usuario cuando los datos son consistentes |
+| `009_remove_must_change_password.sql` | Elimina la columna `must_change_password`: el cambio de contraseña pasa a ser voluntario desde Perfil; el reset sigue invalidando sesiones con `password_version` |
 
 El runner `backend/src/scripts/migrate.js` mantiene `schema_migrations`, detecta las versiones ya aplicadas, aplica solo las pendientes en una transacción por archivo y permite `up`, `down` y `status`. Usa `pg_advisory_lock(742001)` para que dos despliegues concurrentes no apliquen la misma migración dos veces. En Neon usa la conexión directa (`DIRECT_URL` o derivada de la URL `-pooler`), porque las migraciones son DDL y no deben ejecutarse por el pooler en modo transacción. `001_init.sql` crea `pgcrypto` con `IF NOT EXISTS`; Neon lo soporta.
 
-Las migraciones se ejecutan únicamente desde `npm run dev` o `npm run migrate`. El build del servicio `backend` en Vercel usa `migrate.js build`: en producción omite migraciones salvo `ALLOW_PRODUCTION_MIGRATION=true`, para no bloquear el despliegue. Nunca se ejecutan por petición HTTP y no eliminan datos. **Las migraciones 005–008 ya se aplicaron a la Neon del propietario con autorización explícita**; cualquier prueba de desarrollo debe hacerse contra un fixture local desechable.
+Las migraciones se ejecutan únicamente desde `npm run dev` o `npm run migrate`. El build del servicio `backend` en Vercel usa `migrate.js build`: en producción omite migraciones salvo `ALLOW_PRODUCTION_MIGRATION=true`, para no bloquear el despliegue. Nunca se ejecutan por petición HTTP y no eliminan datos. **Las migraciones 005–008 ya se aplicaron a la Neon del propietario con autorización explícita**; la `009` queda pendiente hasta que se ejecute `npm run migrate` con esa misma autorización. El código ya no usa la columna, así que su presencia física no altera el comportamiento. Cualquier prueba de desarrollo debe hacerse contra un fixture local desechable.
 
 ## 2. Tablas
 
@@ -25,7 +26,7 @@ Las migraciones se ejecutan únicamente desde `npm run dev` o `npm run migrate`.
 | --- | --- | --- |
 | `establishments` | Establecimientos (tenants) | `id` identidad, `name` no vacío, `active` para bloquear el acceso |
 | `roles` | Catálogo de roles | `name UNIQUE`; incluye `SUPERADMINISTRADOR` |
-| `users` | Usuarios | `email UNIQUE` global, `establishment_id` nullable hasta asignación explícita, `password_version`, `must_change_password`, FK a `roles` (`RESTRICT`) |
+| `users` | Usuarios | `email UNIQUE` global, `establishment_id` nullable hasta asignación explícita, `password_version`, FK a `roles` (`RESTRICT`) |
 | `revoked_tokens` | JWT revocados por logout | `jti` PK, FK a `users` (`CASCADE`) |
 | `categories` | Categorías | `UNIQUE (establishment_id, name)`, no vacío |
 | `suppliers` | Proveedores | `UNIQUE (establishment_id, tax_id)`, correo válido |

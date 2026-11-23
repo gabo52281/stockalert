@@ -41,12 +41,6 @@ export default function ProfilePage() {
   return (
     <>
       <PageHeader title="Mi perfil" description="Información de la cuenta y cambio de contraseña." />
-      {user?.mustChangePassword && (
-        <div className="info-box info-box--warning">
-          Por seguridad debe cambiar la contraseña asignada antes de continuar. Al guardarla,
-          todas las sesiones anteriores quedarán cerradas.
-        </div>
-      )}
       <div className="grid-2">
         <Card>
           <CardHeader title="Datos personales" subtitle="Información asociada a su usuario" />

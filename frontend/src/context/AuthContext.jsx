@@ -6,7 +6,6 @@ import { permissionsFor } from '../config/permissions.js';
 const AuthContext = createContext(null);
 
 export function homePathFor(user) {
-  if (user?.mustChangePassword) return '/perfil';
   if (user?.role === 'SUPERADMINISTRADOR') return '/superadmin';
   if (user?.role === 'ENCARGADO_INVENTARIO') return '/movimientos';
   return '/';

@@ -4,7 +4,7 @@
 
 Abra `http://localhost:5173` e ingrese con el correo y la contraseña que le entregó su administrador. No hay cartel de demostración, usuarios demo ni registro público: `npm run seed` está deshabilitado y el sistema valida la sesión contra la API. Si el token vence o fue revocado, la aplicación lo devuelve al login.
 
-En el **primer inicio de sesión** debe cambiar la contraseña desde **Perfil**: mientras `must_change_password` esté activo, la aplicación lo redirige a `/perfil`. Las contraseñas se guardan como hashes bcrypt y nunca se muestran. Si su cuenta se desactiva o su establecimiento se desactiva, no podrá ingresar.
+Si desea cambiar su contraseña, hágalo cuando quiera desde **Perfil**. No existe un cambio obligatorio en el primer ingreso. Las contraseñas se guardan como hashes bcrypt y nunca se muestran. Si su cuenta se desactiva o su establecimiento se desactiva, no podrá ingresar.
 
 Después del login, `/auth/me` hidrata los permisos de todos los roles y la aplicación abre la página inicial según el rol:
 

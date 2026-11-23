@@ -41,7 +41,7 @@ npm run admin       # opcional: crea la cuenta inicial real de un establecimient
 npm run dev         # abre http://localhost:5173
 ```
 
-El usuario inicial se crea con `SEED_ADMIN_*` del `.env` (incluido `SEED_ADMIN_ESTABLISHMENT_ID`). `npm run seed` está deshabilitado: no carga datos demo ni credenciales; el SQL antiguo se conserva solo como referencia histórica. La promoción a superadministrador es manual y explícita con `PROMOTE_SUPERADMIN_EMAIL` y `CONFIRM_PROMOTE_SUPERADMIN=true`, y no modifica la contraseña. Las migraciones 005-008 no se aplican a Neon sin autorización explícita (`ALLOW_PRODUCTION_MIGRATION=true`). Las credenciales de prueba se toman de variables `TEST_*`/`E2E_*` sobre una fixture local; no hay credenciales demo en login, tests ni documentación.
+El usuario inicial se crea con `SEED_ADMIN_*` del `.env` (incluido `SEED_ADMIN_ESTABLISHMENT_ID`). `npm run seed` está deshabilitado: no carga datos demo ni credenciales; el SQL antiguo se conserva solo como referencia histórica. La promoción a superadministrador es manual y explícita con `PROMOTE_SUPERADMIN_EMAIL` y `CONFIRM_PROMOTE_SUPERADMIN=true`, y no modifica la contraseña. Las migraciones 005-009 no se aplican a Neon sin autorización explícita (`ALLOW_PRODUCTION_MIGRATION=true`); las 005-008 ya están aplicadas y la 009 está pendiente. Las credenciales de prueba se toman de variables `TEST_*`/`E2E_*` sobre una fixture local; no hay credenciales demo en login, tests ni documentación.
 
 ## Comandos
 
@@ -89,8 +89,8 @@ No existe `VITE_API_URL`: el frontend usa `/api` de forma relativa.
 ## Funcionalidad preservada
 
 - Autenticación JWT con revocación por `jti`, cuatro roles y permisos verificados siempre en backend; el `establishment_id` sale del token validado.
-- Login profesional: sin cartel demo ni registro público. `/auth/me` hidrata permisos para todos los roles y la ruta inicial es `/superadmin` para superadministrador, `/movimientos` para encargado de inventario y `/` para los demás; con `must_change_password` se abre `/perfil`.
-- Contraseñas bcrypt, cambio obligatorio en el primer login, `password_version`, revocación de sesiones y bloqueo de usuarios inactivos y de establecimientos desactivados. Nunca se muestran hashes.
+- Login profesional: sin cartel demo ni registro público. `/auth/me` hidrata permisos para todos los roles y la ruta inicial es `/superadmin` para superadministrador, `/movimientos` para encargado de inventario y `/` para los demás.
+- Contraseñas bcrypt, `password_version`, revocación de sesiones y bloqueo de usuarios inactivos y de establecimientos desactivados. El cambio de contraseña es voluntario desde **Perfil**; no hay obligación de cambiarla en el primer login. Nunca se muestran hashes.
 - Aislamiento multiempresa en SQL (RLS/FORCE RLS y predicados explícitos en repositorios), con `fn_app_is_system()` como único bypass.
 - Productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, usuarios y perfil.
 - Los 10 reportes JSON/CSV/PDF se generan en servidor, sin escribir archivos en disco, y están aislados por establecimiento.

@@ -384,7 +384,7 @@ export default function SuperadminPage() {
     }
     await mutate(
       () => usersApi.resetPassword(formPassword.id, formPassword.password),
-      'Contraseña restablecida. Deberá cambiarla al iniciar sesión.',
+      'Contraseña restablecida. Se cerraron las sesiones anteriores.',
       userReloaders,
     );
   }
@@ -577,7 +577,7 @@ export default function SuperadminPage() {
         open={withAdminModal}
         onClose={() => setWithAdminModal(false)}
         title="Crear establecimiento con administrador"
-        subtitle="El administrador recibirá una contraseña inicial que deberá cambiar al ingresar."
+        subtitle="El administrador recibirá una contraseña inicial y podrá cambiarla cuando quiera desde Perfil."
         size="lg"
         footer={(
           <>
@@ -660,7 +660,7 @@ export default function SuperadminPage() {
             </Field>
           </div>
           {!formUser.id && (
-            <Field label="Contraseña inicial" hint="Mínimo 8 caracteres. El usuario deberá cambiarla al ingresar.">
+            <Field label="Contraseña inicial" hint="Mínimo 8 caracteres. El usuario podrá cambiarla cuando quiera desde Perfil.">
               <Input type="password" autoComplete="new-password" value={formUser.password} onChange={(e) => setFormUser({ ...formUser, password: e.target.value })} minLength={8} required />
             </Field>
           )}

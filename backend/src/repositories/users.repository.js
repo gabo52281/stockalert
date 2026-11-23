@@ -6,7 +6,6 @@ const { tenantPredicate } = require('../config/tenant');
 const COLUMNS = `
   u.id, u.name, u.email, u.active, u.establishment_id,
   e.name AS establishment_name, u.created_at, u.updated_at,
-  u.must_change_password,
   r.name AS role, r.description AS role_description
 `;
 
@@ -84,8 +83,8 @@ async function create({
   name, email, passwordHash, role, active, establishmentId,
 }) {
   const { rows } = await query(
-    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id, must_change_password)
-     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), $5, $6, TRUE)
+    `INSERT INTO users (name, email, password_hash, role_id, active, establishment_id)
+     VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), $5, $6)
      RETURNING id, name, email, active, establishment_id, created_at`,
     [name, email.toLowerCase(), passwordHash, role, active, establishmentId ?? null],
   );
@@ -120,14 +119,13 @@ async function update(id, fields) {
   return findById(rows[0].id);
 }
 
-async function setPassword(id, hash, options = {}) {
+async function setPassword(id, hash) {
   await query(
     `UPDATE users
         SET password_hash = $1,
-            password_version = password_version + 1,
-            must_change_password = $3
+            password_version = password_version + 1
       WHERE id = $2`,
-    [hash, id, options.mustChangePassword === true],
+    [hash, id],
   );
 }
 

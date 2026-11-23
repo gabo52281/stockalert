@@ -17,7 +17,6 @@ function publicUser(user) {
     active: user.active,
     establishmentId: user.establishment_id ?? null,
     establishmentName: user.establishment_name ?? null,
-    mustChangePassword: Boolean(user.must_change_password),
   };
 }
 
@@ -59,9 +58,7 @@ async function changePassword(userId, currentPassword, newPassword) {
   if (!full || !(await bcrypt.compare(currentPassword, full.password_hash))) {
     throw ApiError.badRequest('La contraseña actual no es correcta', undefined);
   }
-  await usersRepository.setPassword(userId, await bcrypt.hash(newPassword, 12), {
-    mustChangePassword: false,
-  });
+  await usersRepository.setPassword(userId, await bcrypt.hash(newPassword, 12));
 }
 
 async function me(user) {

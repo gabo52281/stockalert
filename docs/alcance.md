@@ -13,8 +13,8 @@ STOCKALERT es un sistema **multiempresa** de control de inventarios con alertas 
 - Panel principal con gráficas e indicadores.
 - Módulo de alertas, indicadores y 10 reportes con exportación JSON/CSV/PDF, aislados por establecimiento.
 - Autenticación con JWT, logout real con revocación y autorización por cuatro roles; login profesional sin cartel demo ni registro público.
-- Usuarios, perfiles y cambio de contraseña obligatorio en el primer login.
-- Base de datos con migraciones versionadas (incluidas `005_multi_tenant.sql` a `008_harden_tenant_boundaries.sql`), restricciones, índices y transacciones. No se cargan datos demo: el seed está deshabilitado y el SQL antiguo se conserva solo como referencia histórica.
+- Usuarios, perfiles y cambio de contraseña voluntario desde **Perfil**; no hay obligación de cambiarla en el primer ingreso.
+- Base de datos con migraciones versionadas (incluidas `005_multi_tenant.sql` a `009_remove_must_change_password.sql`), restricciones, índices y transacciones. No se cargan datos demo: el seed está deshabilitado y el SQL antiguo se conserva solo como referencia histórica.
 - Pruebas automatizadas de backend y verificación E2E en navegador con credenciales de una fixture local definidas en variables `TEST_*`/`E2E_*`.
 - Asistente IA con cálculo **local y explicable** (estimación de demanda, stock de seguridad, punto de pedido, riesgo y detección de anomalías a partir de movimientos reales) y chat conversacional con OpenAI que responde con un resumen agregado del establecimiento.
 

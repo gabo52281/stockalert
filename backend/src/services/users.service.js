@@ -82,9 +82,7 @@ async function resetPassword(id, password, actor) {
   requireSuperAdmin(actor);
   const target = await get(id, actor);
   assertManageable(target);
-  await usersRepository.setPassword(id, await bcrypt.hash(password, 12), {
-    mustChangePassword: true,
-  });
+  await usersRepository.setPassword(id, await bcrypt.hash(password, 12));
 }
 
 module.exports = {

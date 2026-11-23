@@ -88,7 +88,7 @@ Todas las rutas requieren autenticación; la gestión es exclusiva del superadmi
 | POST | `/` | rol `SUPERADMINISTRADOR` | Crear usuario con `establishmentId` y rol `ADMINISTRADOR`, `ENCARGADO_INVENTARIO` o `CONSULTA` |
 | PATCH | `/:id` | rol `SUPERADMINISTRADOR` | Editar usuario y su establecimiento |
 | PATCH | `/:id/active` | rol `SUPERADMINISTRADOR` | Activar/desactivar (`{ "active": boolean }`) |
-| PATCH | `/:id/password` | rol `SUPERADMINISTRADOR` | Restablecer contraseña (`{ "password": ... }`) y exigir cambio en el próximo login |
+| PATCH | `/:id/password` | rol `SUPERADMINISTRADOR` | Restablecer contraseña (`{ "password": ... }`); cierra las sesiones anteriores y el usuario puede cambiarla cuando quiera desde Perfil |
 
 `users.email` es único globalmente, porque el login no pide seleccionar empresa. No se pueden crear ni modificar cuentas `SUPERADMINISTRADOR` desde estos endpoints: esa promoción es explícita y queda fuera del panel. Un restablecimiento incrementa `password_version`, por lo que los tokens anteriores dejan de ser válidos.
 
