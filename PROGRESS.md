@@ -82,7 +82,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - `backend/api/index.js` exporta la app Express sin `listen()`; es el entrypoint del servicio `backend` en Vercel Services.
 - `vercel.json` usa el formato `services` con `backend` y `frontend`: enruta `/api` y `/api/*` al backend conservando el prefijo, `/health` al backend y el resto al frontend con fallback de React Router dentro de ese servicio.
 - `npm run dev`: valida configuración, migra, levanta API y Vite, espera `/health`, abre el navegador y muestra errores comprensibles.
-- Cada servicio instala y compila por separado. El build del servicio backend ejecuta las migraciones pendientes una vez por despliegue; el build del frontend solo compila la SPA.
+- Cada servicio instala y compila por separado. El build del servicio backend usa `migrate.js build`: en producción aplica migraciones solo con autorización explícita y, si no la hay, las omite sin fallar; el build del frontend solo compila la SPA.
 
 ## FASE 8 — Asistente IA local
 
@@ -126,6 +126,14 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - `/auth/me` y el frontend usan `permissionsFor(role)` como respaldo cuando el backend no envía permisos; el backend sigue siendo la autoridad. La campana de alertas se oculta sin `alerts:read` y `ForbiddenPage` enlaza al home del rol.
 - Regresión unitaria versionada en `frontend/tests/permissions.test.mjs` (4/4 OK), expuesta como `npm run test:permissions`. La prueba E2E opcional `npm run test:superadmin-e2e` exige `E2E_BASE_URL` explícito; no se ejecutó en esta ronda porque se suspendieron las pruebas en localhost.
 
+## FASE 12 — Build de Vercel sin migración forzada
+
+**Estado:** COMPLETADA
+
+- El despliegue del commit `aa40498` falló en Vercel porque el build del workspace `backend` ejecutaba `migrate.js up` y ese comando exige `ALLOW_PRODUCTION_MIGRATION=true` contra Neon.
+- `backend/package.json` ahora usa `migrate.js build` en su script `build`. Ese comando aplica migraciones solo en local o con autorización explícita; en producción sin autorización imprime el aviso y termina con código 0.
+- `npm run dev` y `npm run migrate` conservan su comportamiento estricto. Las migraciones 005–008 siguen aplicadas y no se repiten.
+
 ## Resultados reales finales
 
 La última ronda de verificación se resume en las siete primeras filas; el resto corresponde a comprobaciones de fases anteriores y se conserva como histórico.
@@ -137,6 +145,7 @@ La última ronda de verificación se resume en las siete primeras filas; el rest
 | `npm run test:fields` | 6/6 pruebas OK de campos numéricos y COP (2026-11-23) |
 | `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras OK; URL local ficticia solo para el guard, sin conexión (2026-11-23) |
 | `npm run build` | correcto, 2109 módulos (ronda 2026-11-23) |
+| `npm run build --workspace=backend` contra Neon sin autorización | omite migraciones y termina correctamente; el deploy anterior había fallado en este paso |
 | Login directo contra Neon | 3 usuarios operativos verificados por `auth.service.login`, sin localhost; superadmin sigue con rol global y sin tenant |
 | E2E de redirect superadmin | No ejecutada en esta ronda (sin localhost); disponible con `E2E_BASE_URL` explícito |
 | `npm test` con fixture local | 8 archivos, 99/99 pruebas OK (ronda anterior) |

@@ -186,7 +186,7 @@ No existen endpoints para editar o borrar movimientos: el historial es inmutable
 ## 11. Arranque y despliegue
 
 - `npm run dev` valida el `.env` raíz, ejecuta migraciones pendientes, inicia API y Vite y abre el navegador.
-- `npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate` o desde el build del servicio backend en Vercel; en Neon solo con autorización previa.
+- `npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate` o desde `npm run dev`; el build del servicio backend en Vercel las omite en producción salvo autorización previa.
 - `backend/api/index.js` exporta la app Express y es el entrypoint del servicio `backend`. `server.js` (que sí llama a `listen()`) solo se usa en desarrollo local y en `npm start`.
 - `vercel.json` define los servicios `backend` y `frontend`, enruta `/api`, `/api/*` y `/health` al backend, envía el resto al frontend y declara el fallback a `/index.html` dentro del servicio frontend para React Router.
 - Cada servicio instala y compila sus dependencias de forma independiente; npm detecta el workspace raíz del repositorio desde cada servicio. No hay service bindings: el navegador usa `/api` en el mismo dominio.

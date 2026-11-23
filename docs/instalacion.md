@@ -84,7 +84,7 @@ npm run build
 
 Sin `DATABASE_URL`, `npm test` ejecuta solo pruebas puras y omite las integraciones. Para la suite completa use una fixture local: `DATABASE_URL` y las credenciales de prueba se toman de `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, `TEST_CONSULTA_EMAIL`, `TEST_CONSULTA_PASSWORD` y `TEST_ADMIN_ESTABLISHMENT_ID` (E2E: `E2E_EMAIL`, `E2E_PASSWORD`, `E2E_HOME_PATH`). No apunte las pruebas a una BD de producción salvo autorización explícita con `ALLOW_NONLOCAL_TESTS=true`.
 
-`npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate`, desde `npm run dev` o desde el build del servicio backend en Vercel, siempre sujetas a la autorización indicada arriba.
+`npm run build` compila únicamente la SPA. Las migraciones se ejecutan con `npm run migrate` o desde `npm run dev`. El build del servicio backend en Vercel usa `migrate.js build` y en producción omite migraciones salvo autorización explícita.
 
 ## 5. Despliegue en Vercel Services
 
@@ -105,7 +105,7 @@ Un repositorio, un proyecto, dos servicios (`backend` y `frontend`) en el mismo 
 Qué hace cada servicio:
 
 - Ambos ejecutan `npm install` desde su raíz; npm detecta el workspace raíz del repositorio, por lo que las dependencias se resuelven como en local.
-- `backend`: su build (`npm run build` del workspace backend) ejecuta las migraciones pendientes una vez por despliegue. Las migraciones 005-008 ya se aplicaron a Neon con autorización explícita, por lo que un despliegue posterior no las repetirá. El entrypoint es `backend/api/index.js`, que exporta la app Express sin `app.listen()`; `server.js` solo se usa en local.
+- `backend`: su build (`npm run build` del workspace backend) usa `migrate.js build`. En producción sin `ALLOW_PRODUCTION_MIGRATION=true` omite migraciones y termina correctamente; con autorización sí aplica las pendientes. Las migraciones 005-008 ya están aplicadas a Neon. El entrypoint es `backend/api/index.js`, que exporta la app Express sin `app.listen()`; `server.js` solo se usa en local.
 - `frontend`: su build compila la SPA en `frontend/dist`. El fallback a `/index.html` está declarado dentro del servicio frontend, así que las recargas de React Router funcionan.
 - `vercel.json` enruta `/api` y `/api/*` al servicio `backend` sin quitar el prefijo, y `/health` también al backend. El resto va al frontend.
 - La SPA usa `/api`, así que no hay URLs absolutas ni secretos en el bundle. No se configuraron service bindings porque el navegador llama al mismo dominio.

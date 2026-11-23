@@ -231,7 +231,7 @@ valuation            OK  páginas=2  filas=29
 ## 10. Configuración de Vercel Services verificada localmente
 
 - `vercel.json` es JSON válido y usa el formato `services` con `backend` y `frontend`, sin comandos globales de build.
-- Cada servicio declara su propio `installCommand` y `buildCommand`: `backend` ejecuta las migraciones pendientes una vez por despliegue; `frontend` compila la SPA en `dist`.
+- Cada servicio declara su propio `installCommand` y `buildCommand`: `backend` usa `migrate.js build` (en producción omite migraciones sin autorización y no falla el deploy); `frontend` compila la SPA en `dist`.
 - Los rewrites raíz envían `/api`, `/api/*` y `/health` al servicio `backend` y el resto al servicio `frontend`. El fallback a `/index.html` está dentro del servicio frontend.
 - No hay `bindings`: el navegador llama a `/api` en el mismo dominio.
 - `backend/api/index.js` exporta la app Express; al importarla con `VERCEL=1` y variables de entorno de prueba no se llama a `listen()` y el proceso termina.

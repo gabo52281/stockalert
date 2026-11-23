@@ -5,7 +5,7 @@
   "description": "API REST de STOCKALERT",
   "main": "api/index.js",
   "scripts": {
-    "build": "node src/scripts/migrate.js up",
+    "build": "node src/scripts/migrate.js build",
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "test": "vitest run --reporter=verbose --pool=forks --poolOptions.forks.singleFork=true",

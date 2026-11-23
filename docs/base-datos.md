@@ -17,7 +17,7 @@ Motor: PostgreSQL administrado en **Neon** (PostgreSQL 14+). No hay PostgreSQL l
 
 El runner `backend/src/scripts/migrate.js` mantiene `schema_migrations`, detecta las versiones ya aplicadas, aplica solo las pendientes en una transacción por archivo y permite `up`, `down` y `status`. Usa `pg_advisory_lock(742001)` para que dos despliegues concurrentes no apliquen la misma migración dos veces. En Neon usa la conexión directa (`DIRECT_URL` o derivada de la URL `-pooler`), porque las migraciones son DDL y no deben ejecutarse por el pooler en modo transacción. `001_init.sql` crea `pgcrypto` con `IF NOT EXISTS`; Neon lo soporta.
 
-Las migraciones se ejecutan únicamente desde `npm run dev`, `npm run migrate` o el build del servicio `backend` en Vercel Services. Nunca se ejecutan por petición HTTP y no eliminan datos. **Las migraciones 005–008 ya se aplicaron a la Neon del propietario con autorización explícita**; cualquier prueba de desarrollo debe hacerse contra un fixture local desechable.
+Las migraciones se ejecutan únicamente desde `npm run dev` o `npm run migrate`. El build del servicio `backend` en Vercel usa `migrate.js build`: en producción omite migraciones salvo `ALLOW_PRODUCTION_MIGRATION=true`, para no bloquear el despliegue. Nunca se ejecutan por petición HTTP y no eliminan datos. **Las migraciones 005–008 ya se aplicaron a la Neon del propietario con autorización explícita**; cualquier prueba de desarrollo debe hacerse contra un fixture local desechable.
 
 ## 2. Tablas
 

@@ -27,7 +27,10 @@ function isLocalDatabase(url) {
 }
 
 const command = process.argv[2] || 'up';
-if (command !== 'status' && !isLocalDatabase(migrationUrl)
+// `build` es el comando usado por Vercel: puede omitir migraciones en producción
+// sin autorización. `up` y `down` siguen estrictos para ejecución manual.
+const isBuild = command === 'build';
+if (!['status', 'build'].includes(command) && !isLocalDatabase(migrationUrl)
   && process.env.ALLOW_PRODUCTION_MIGRATION !== 'true') {
   throw new Error(
     'Este comando apunta a una base no local. Para aplicar cambios en producción '
@@ -144,12 +147,22 @@ async function down() {
   }
 }
 
+async function build() {
+  if (!isLocalDatabase(migrationUrl) && process.env.ALLOW_PRODUCTION_MIGRATION !== 'true') {
+    console.log('Build: migraciones omitidas en producción (NO se modificó la base).');
+    console.log('Las migraciones 005-008 ya están aplicadas; para volver a intentarlo, defina ALLOW_PRODUCTION_MIGRATION=true de forma explícita.');
+    return;
+  }
+  await up();
+}
+
 (async () => {
   const command = process.argv[2] || 'up';
   try {
     if (command === 'up') await up();
     else if (command === 'down') await down();
     else if (command === 'status') await status();
+    else if (isBuild) await build();
     else throw new Error(`Comando desconocido: ${command}`);
   } catch (error) {
     console.error(error.message);
