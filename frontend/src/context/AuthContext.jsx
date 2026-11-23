@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../api/endpoints.js';
 import { clearToken, hasToken, saveToken } from '../api/client.js';
+import { permissionsFor } from '../config/permissions.js';
 
 const AuthContext = createContext(null);
 
@@ -49,23 +50,29 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const hasPermission = useCallback((permission) => {
-    if (!user) return false;
-    return Boolean(user.permissions?.includes(permission));
-  }, [user]);
+  const permissions = useMemo(
+    () => permissionsFor(user?.role, user?.permissions),
+    [user?.role, user?.permissions],
+  );
+
+  const hasPermission = useCallback(
+    (permission) => permissions.includes(permission),
+    [permissions],
+  );
 
   const value = useMemo(() => ({
     user,
     loading,
     login,
     logout,
+    permissions,
     hasPermission,
     homePath: homePathFor(user),
     isSuperAdmin: user?.role === 'SUPERADMINISTRADOR',
     isAdmin: user?.role === 'ADMINISTRADOR',
     isManager: user?.role === 'ENCARGADO_INVENTARIO',
     isReadOnly: user?.role === 'CONSULTA',
-  }), [user, loading, login, logout, hasPermission]);
+  }), [user, loading, login, logout, permissions, hasPermission]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

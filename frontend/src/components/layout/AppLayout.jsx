@@ -3,8 +3,11 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 import { alertsApi } from '../../api/endpoints.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function AppLayout() {
+  const { hasPermission } = useAuth();
+  const canReadAlerts = hasPermission('alerts:read');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
 
@@ -16,13 +19,14 @@ export default function AppLayout() {
         if (active) setAlertCount(response.data.attention || 0);
       } catch { /* el contador no bloquea la navegación */ }
     };
-    load();
-    window.addEventListener('stockalert:refresh-alerts', load);
+    if (canReadAlerts) load();
+    const refresh = () => { if (canReadAlerts) load(); };
+    window.addEventListener('stockalert:refresh-alerts', refresh);
     return () => {
       active = false;
-      window.removeEventListener('stockalert:refresh-alerts', load);
+      window.removeEventListener('stockalert:refresh-alerts', refresh);
     };
-  }, []);
+  }, [canReadAlerts]);
 
   return (
     <div className="app-shell">

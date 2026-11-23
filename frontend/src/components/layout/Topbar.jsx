@@ -21,8 +21,9 @@ const TITLES = [
 
 export default function Topbar({ onMenu, alertCount = 0 }) {
   const { pathname } = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { success } = useToast();
+  const canReadAlerts = hasPermission('alerts:read');
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -47,10 +48,12 @@ export default function Topbar({ onMenu, alertCount = 0 }) {
       </div>
 
       <div className="topbar__right">
-        <NavLink to="/alertas" className="topbar__bell" aria-label="Ver alertas">
-          <Bell size={19} />
-          {alertCount > 0 && <span className="topbar__bell-count">{alertCount > 99 ? '99+' : alertCount}</span>}
-        </NavLink>
+        {canReadAlerts && (
+          <NavLink to="/alertas" className="topbar__bell" aria-label="Ver alertas">
+            <Bell size={19} />
+            {alertCount > 0 && <span className="topbar__bell-count">{alertCount > 99 ? '99+' : alertCount}</span>}
+          </NavLink>
+        )}
 
         <div className="user-menu">
           <button type="button" className="user-menu__trigger" onClick={() => setMenuOpen((value) => !value)}>

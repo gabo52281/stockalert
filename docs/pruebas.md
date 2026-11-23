@@ -1,6 +1,6 @@
 # Pruebas y verificación
 
-Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20 y 2026-11-21. La verificación multiempresa se realizó contra una fixture PostgreSQL local/desechable en `127.0.0.1:55432`, donde se aplicaron primero las migraciones `005` a `008`. Con autorización explícita del propietario esas mismas migraciones se aplicaron también a Neon y se promovió `admin@su-dominio.com` a `SUPERADMINISTRADOR` sin tocar su contraseña; no se cargaron seeds en Neon ni se desplegó en Vercel. Esta pasada añade la verificación de aislamiento A/B, de los 10 reportes PDF rediseñados y del copiloto conversacional con OpenRouter gratuito (secciones 3, 8 y 9). Ninguna clave de API ni credencial real se guardó en el repositorio ni en el frontend.
+Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20, 2026-11-21 y 2026-11-23. La verificación multiempresa se realizó contra una fixture PostgreSQL local/desechable en `127.0.0.1:55432`, donde se aplicaron primero las migraciones `005` a `008`. Con autorización explícita del propietario esas mismas migraciones se aplicaron también a Neon y se promovió `admin@su-dominio.com` a `SUPERADMINISTRADOR` sin tocar su contraseña; no se cargaron seeds en Neon ni se desplegó en Vercel. Esta pasada añade la verificación de aislamiento A/B, de los 10 reportes PDF rediseñados, del copiloto conversacional con OpenRouter gratuito (secciones 3, 8 y 9) y la regresión del acceso del superadministrador (sección 14). Ninguna clave de API ni credencial real se guardó en el repositorio ni en el frontend.
 
 ## 1. Entorno usado
 
@@ -30,6 +30,8 @@ Test Files  8 passed (8)
 Tests       98 passed (98)
 Duration    6.28s
 ```
+
+Ronda del 2026-11-23, **sin pruebas en localhost**: `npm run lint` terminó con 0 errores; `npm run test:permissions` 4/4; `npm run test:fields` 6/6; `npm run test:unit` 4 archivos / 44 pruebas puras con una URL local ficticia solo para el guard (sin servidor ni conexión); y `npm run build` compiló 2109 módulos. Las integraciones con fixture local quedan documentadas arriba como historial, pero no se repitieron en esta ronda.
 
 Cobertura:
 
@@ -297,7 +299,11 @@ $env:E2E_BASE_URL='http://127.0.0.1:5173'
 $env:E2E_EMAIL=$env:TEST_ADMIN_EMAIL
 $env:E2E_PASSWORD=$env:TEST_ADMIN_PASSWORD
 $env:E2E_HOME_PATH='/'
+$env:E2E_SUPERADMIN_EMAIL='superadmin@fixture.local'
+$env:E2E_SUPERADMIN_PASSWORD='valor-de-la-fixture'
 npm run test:e2e --workspace=frontend
+npm run test:superadmin-e2e --workspace=frontend
+npm run test:permissions
 npm run test:fields
 npm run test:numeric-e2e --workspace=frontend
 npm run test:movements-e2e --workspace=frontend
@@ -311,3 +317,23 @@ npm run test:e2e --workspace=frontend
 Las integraciones se activan cuando hay `DATABASE_URL` **y** las credenciales `TEST_*`. Para aplicar migraciones de forma explícita: `npm run migrate` (en una base no local exige `ALLOW_PRODUCTION_MIGRATION=true` y autorización del propietario). `npm run seed` está deshabilitado a propósito.
 
 Variables nuevas del copiloto: `OPENROUTER_API_KEY` (solo servidor; vacía = IA fuera de servicio), `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512`. En Vercel deben ir en la sección de variables de entorno del servicio **backend**; el frontend no necesita ninguna.
+
+## 14. Regresión del acceso del superadministrador
+
+**Síntoma reportado:** al iniciar sesión con la cuenta `SUPERADMINISTRADOR` aparecían `No tiene permisos para acceder a este módulo` y `Su rol no autoriza esta operación. Contacte al administrador si lo considera necesario.`
+
+**Causa:** `LoginPage.jsx` priorizaba `location.state?.from?.pathname` (normalmente `/`) por encima de `homePathFor(loggedUser)`, y un `/auth/me` de una versión anterior podía llegar sin `permissions`. Como el superadministrador no tiene permisos de inventario por diseño, cualquier ruta distinta de `/superadmin` —o una lista de permisos vacía— terminaba en la pantalla de acceso denegado.
+
+**Corrección:**
+- `frontend/src/pages/LoginPage.jsx`: el login siempre navega a `homePathFor(loggedUser)`.
+- `frontend/src/routes/ProtectedRoute.jsx`: si un superadministrador intenta una ruta sin permiso, se le redirige a `/superadmin` en lugar de a `/acceso-denegado`.
+- `frontend/src/components/layout/AppLayout.jsx`: solo consulta `/api/alerts/summary` cuando existe `alerts:read`, evitando un 403 al cargar el panel.
+- `frontend/src/components/layout/Topbar.jsx`: la campana de alertas se oculta sin `alerts:read`.
+- `frontend/src/pages/ForbiddenPage.jsx`: «Volver a mi panel» lleva al home del rol, no siempre a `/`.
+- `backend/src/controllers/auth.controller.js` y `frontend/src/config/permissions.js`: `/auth/me` respalda la lista de permisos con `permissionsFor(role)` y el frontend usa esa misma matriz solo cuando el backend no envía permisos, evitando que un backend anterior deje al superadministrador sin menú. El backend sigue siendo la autoridad y el inventario continúa vedado al superadministrador.
+
+**Verificación de esta ronda (sin localhost):** los permisos del superadministrador se comprobaron con `npm run test:permissions` (4/4) y con consultas directas a Neon: su rol sigue siendo `SUPERADMINISTRADOR`, sin establecimiento asignado, con `users:read`/`establishments:read` y sin `products:read`/`movements:create`. El login de los tres nuevos usuarios se verificó con `auth.service.login` contra Neon, sin iniciar servidor ni navegador. No se repitieron pruebas E2E en `127.0.0.1`.
+
+**Prueba unitaria de permisos:** `npm run test:permissions` ejecuta `frontend/tests/permissions.test.mjs`: **4/4 pruebas OK**. Cubre el respaldo de permisos del superadministrador, el respeto a la lista del backend, los roles de inventario y un rol desconocido sin permisos.
+
+**Prueba versionada:** `frontend/tests/superadmin-redirect-e2e.mjs`, disponible con `npm run test:superadmin-e2e`. Comprueba: (1) ruta protegida sin sesión redirige al login, (2) el login termina en `/superadmin` con el encabezado «Administración general», (3) ausencia de los textos de acceso denegado, (4) una URL directa a `/` devuelve al panel de superadministración, (5) ninguna respuesta HTTP 403 y ningún error de consola. Requiere `E2E_BASE_URL` explícito (producción u otro entorno autorizado), además de `E2E_SUPERADMIN_EMAIL` y `E2E_SUPERADMIN_PASSWORD`; no tiene valor localhost por defecto y no contiene credenciales incrustadas. No se ejecutó en esta ronda.

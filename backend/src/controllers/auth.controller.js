@@ -2,6 +2,7 @@
 
 const service = require('../services/auth.service');
 const { ok } = require('../utils/pagination');
+const { permissionsFor } = require('../config/permissions');
 
 async function login(req, res) {
   const { email, password } = req.validated.body;
@@ -15,7 +16,12 @@ async function logout(req, res) {
 
 async function me(req, res) {
   const user = await service.me(req.user);
-  return ok(res, { ...user, permissions: req.user.permissions });
+  // req.user.permissions lo llena authenticate; el respaldo evita respuestas
+  // sin permisos si el middleware cambia en el futuro.
+  return ok(res, {
+    ...user,
+    permissions: req.user.permissions || permissionsFor(req.user.role),
+  });
 }
 
 async function changePassword(req, res) {

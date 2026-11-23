@@ -7,7 +7,9 @@ Registro de avance y estado final del proyecto tras la refactorización a Neon +
 STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en la raíz**, **un solo comando de desarrollo** (`npm run dev`) y **un proyecto de Vercel**. La arquitectura multiempresa ya está implementada: un **SUPERADMINISTRADOR global** con panel `/superadmin` administra establecimientos y cuentas; cada establecimiento tiene su propio inventario aislado y sus usuarios asignados. El superadministrador **no tiene acceso a inventario ni IA**.
 
 - Roles: `SUPERADMINISTRADOR` (`establishments:*`, `users:*`, `admin-stats:read`, `profile:*`), `ADMINISTRADOR` y `ENCARGADO_INVENTARIO` (inventario completo en su tenant) y `CONSULTA` (solo lectura en su tenant).
-- Última verificación local: `npm run lint` sin errores (0), `npm test` con **8 archivos / 99 pruebas OK** usando fixture local, y `npm run build` correcto con **2108 módulos en 9,57 s**.
+- Última verificación de esta ronda (2026-11-23), **sin pruebas en localhost**: `npm run lint` sin errores, `npm run test:permissions` 4/4, `npm run test:fields` 6/6, `npm run test:unit` 44/44 con una URL local ficticia solo para pasar el guard de pruebas puras (sin servidor ni conexión) y `npm run build` correcto con 2109 módulos. El historial de pruebas con fixture local se conserva más abajo como referencia, no se repitió.
+- Corregido el acceso del superadministrador: `LoginPage` navega siempre a `homePathFor`, `ProtectedRoute` lo devuelve a `/superadmin` desde rutas sin permiso, `AppLayout` no solicita `/api/alerts/summary` sin `alerts:read`, y `/auth/me` más el frontend respaldan los permisos por rol cuando el backend desplegado es antiguo. Regresión unitaria versionada en `frontend/tests/permissions.test.mjs` (`npm run test:permissions`).
+- Creados tres usuarios operativos en el establecimiento 1 (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` y `CONSULTA`) con la misma contraseña; se verificó el login directamente contra Neon, sin servidor local. Las credenciales se entregaron al propietario fuera del repositorio.
 - El contexto de tenant se toma del JWT (`pv`/`est`) y se valida contra la base de datos: usuario real, `password_version`, establecimiento activo y token no revocado. Se propaga con `AsyncLocalStorage` y GUCs por transacción; RLS/FORCE RLS, predicados SQL explícitos y `fn_app_is_system()` como único bypass. El `tenant_id` del frontend se ignora.
 - Migraciones `005`–`008` incluidas en el repositorio y **aplicadas a Neon con autorización explícita**; `admin@su-dominio.com` promovido a `SUPERADMINISTRADOR` sin cambiar contraseña. Despliegue aún pendiente.
 - Insights deterministas: cálculo local de indicadores. Chat conversacional: **exclusivamente OpenRouter gratuito** (`openrouter/free`, `usage.cost = 0`), con consentimiento y sin fallback local ni de pago.
@@ -114,15 +116,30 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - `users.email` único global; código de producto, nombre de categoría, NIT de proveedor y `source_key` únicos por establecimiento. Registros comerciales antiguos al establecimiento 1; `users` en `NULL` hasta asignación explícita.
 - Seed demo deshabilitado y sin credenciales demo; verificación con fixture local y variables `TEST_*`/`E2E_*`.
 
+## FASE 11 — Regresión del acceso del superadministrador
+
+**Estado:** COMPLETADA
+
+- `LoginPage.jsx` dejó de priorizar `state.from` y siempre navega a `homePathFor(loggedUser)`; el superadministrador entra directamente en `/superadmin`.
+- `ProtectedRoute.jsx` devuelve al superadministrador a su panel cuando una URL directa apunta a una ruta sin permiso, en vez de mostrar `/acceso-denegado`.
+- `AppLayout.jsx` condiciona `/api/alerts/summary` a `alerts:read`, eliminando el 403 al cargar el panel.
+- `/auth/me` y el frontend usan `permissionsFor(role)` como respaldo cuando el backend no envía permisos; el backend sigue siendo la autoridad. La campana de alertas se oculta sin `alerts:read` y `ForbiddenPage` enlaza al home del rol.
+- Regresión unitaria versionada en `frontend/tests/permissions.test.mjs` (4/4 OK), expuesta como `npm run test:permissions`. La prueba E2E opcional `npm run test:superadmin-e2e` exige `E2E_BASE_URL` explícito; no se ejecutó en esta ronda porque se suspendieron las pruebas en localhost.
+
 ## Resultados reales finales
 
-La última ronda de verificación se resume en las tres primeras filas; el resto corresponde a comprobaciones de fases anteriores y se conserva como histórico.
+La última ronda de verificación se resume en las siete primeras filas; el resto corresponde a comprobaciones de fases anteriores y se conserva como histórico.
 
 | Comprobación | Resultado |
 | --- | --- |
-| `npm run lint` | 0 errores y 0 advertencias en backend y frontend |
-| `npm test` con fixture local | 8 archivos, 99/99 pruebas OK |
-| `npm run build` | correcto, 2108 módulos, 9,57 s |
+| `npm run lint` | 0 errores y 0 advertencias en backend y frontend (ronda 2026-11-23) |
+| `npm run test:permissions` | 4/4 pruebas OK del respaldo de permisos por rol (2026-11-23) |
+| `npm run test:fields` | 6/6 pruebas OK de campos numéricos y COP (2026-11-23) |
+| `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras OK; URL local ficticia solo para el guard, sin conexión (2026-11-23) |
+| `npm run build` | correcto, 2109 módulos (ronda 2026-11-23) |
+| Login directo contra Neon | 3 usuarios operativos verificados por `auth.service.login`, sin localhost; superadmin sigue con rol global y sin tenant |
+| E2E de redirect superadmin | No ejecutada en esta ronda (sin localhost); disponible con `E2E_BASE_URL` explícito |
+| `npm test` con fixture local | 8 archivos, 99/99 pruebas OK (ronda anterior) |
 | `npm install` (raíz, workspaces) | 486 paquetes añadidos, 17 eliminados; 9 avisos de auditoría de dependencias transitivas (ronda anterior) |
 | `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras (ronda anterior) |
 | `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` (ronda anterior) |

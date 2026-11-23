@@ -8,8 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test:permissions": "node --test tests/permissions.test.mjs",
     "test:fields": "node --test tests/numeric.test.mjs",
     "test:e2e": "node tests/e2e.mjs",
+    "test:superadmin-e2e": "node tests/superadmin-redirect-e2e.mjs",
     "test:numeric-e2e": "node tests/numeric-e2e.mjs",
     "test:movements-e2e": "node tests/movements-tabs-e2e.mjs"
   },

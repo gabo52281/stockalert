@@ -52,6 +52,8 @@ El usuario inicial se crea con `SEED_ADMIN_*` del `.env` (incluido `SEED_ADMIN_E
 | `npm run build` | Compila la SPA; en Vercel aplica antes las migraciones pendientes solo si están autorizadas. |
 | `npm test` | Pruebas automáticas. Sin `DATABASE_URL` omite las integraciones y ejecuta las pruebas puras; con BD usa credenciales `TEST_*` de una fixture local. |
 | `npm run test:integration` | Solo pruebas con base de datos (requiere `DATABASE_URL` y credenciales `TEST_*`). |
+| `npm run test:permissions` | Pruebas unitarias de la matriz de permisos del frontend. |
+| `npm run test:superadmin-e2e` | Regresión E2E opcional del login de superadministrador (requiere `E2E_BASE_URL`, `E2E_SUPERADMIN_EMAIL` y `E2E_SUPERADMIN_PASSWORD`; no usa localhost por defecto). |
 | `npm run lint` | ESLint de backend y frontend. |
 | `npm run migrate` / `migrate:status` | Aplicar/consultar migraciones de forma manual. Aplicar en una BD no local exige autorización explícita. |
 | `npm run admin` | Crear o actualizar el usuario inicial de un establecimiento. |
@@ -131,7 +133,7 @@ Las migraciones de la arquitectura multiempresa son `005_multi_tenant.sql`, `006
 
 `vercel.json` enruta `/api` y `/api/*` al servicio `backend` (sin quitar el prefijo), `/health` también al backend y el resto al servicio `frontend`. Recargar `/productos`, `/ia`, `/superadmin`, etc. funciona gracias al fallback definido dentro del servicio frontend. No se añadieron service bindings: el navegador llama a `/api` en el mismo dominio.
 
-Las migraciones `005`–`008` ya se aplicaron a Neon con autorización explícita y `admin@su-dominio.com` fue promovido a `SUPERADMINISTRADOR` sin cambiar su contraseña; no se ha realizado un despliegue real desde este entorno. Verificación local real contra la fixture `127.0.0.1:55432`: `npm run lint` con 0 errores, 8 archivos / 99 pruebas backend OK y `npm run build` de 2108 módulos en 9,57 s.
+Las migraciones `005`–`008` ya se aplicaron a Neon con autorización explícita y `admin@su-dominio.com` fue promovido a `SUPERADMINISTRADOR` sin cambiar su contraseña; no se ha realizado un despliegue real desde este entorno. El 2026-11-23 se corrigió el acceso del superadministrador: el login siempre aterriza en `/superadmin`, las rutas de inventario lo devuelven a su panel, el layout no pide alertas sin permiso y `/auth/me` respalda los permisos por rol si el backend desplegado es antiguo. La regresión unitaria quedó versionada en `frontend/tests/permissions.test.mjs`. También se crearon tres usuarios operativos en el establecimiento 1 (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` y `CONSULTA`) con la misma contraseña, verificados con login directo contra Neon. Esta ronda se validó **sin pruebas en localhost**: `lint` sin errores, `test:permissions` 4/4, `test:fields` 6/6, `test:unit` 44/44 sin conexión a base (URL local ficticia solo para el guard de pruebas puras) y `build` correcto de 2109 módulos.
 
 ## Estructura
 

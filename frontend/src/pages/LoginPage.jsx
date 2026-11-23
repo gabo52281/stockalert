@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { homePathFor, useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const { user, login } = useAuth();
   const { success, error: notifyError } = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +29,9 @@ export default function LoginPage() {
     try {
       const loggedUser = await login(form);
       success('Bienvenido a STOCKALERT');
-      navigate(location.state?.from?.pathname || homePathFor(loggedUser), { replace: true });
+      // No se respeta `state.from`: si era una ruta de inventario, un rol sin
+      // ese permiso caería en /acceso-denegado apenas iniciar sesión.
+      navigate(homePathFor(loggedUser), { replace: true });
     } catch (err) {
       notifyError(errorMessage(err));
     } finally {
