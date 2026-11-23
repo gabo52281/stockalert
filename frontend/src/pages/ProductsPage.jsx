@@ -165,7 +165,7 @@ export default function ProductsPage() {
     {
       key: 'actions', label: 'Acciones', align: 'right',
       render: (row) => (
-        <div className="row-actions">
+        <div className="row-actions row-actions--icons">
           <button type="button" title="Ver historial" onClick={(event) => { event.stopPropagation(); openHistory(row); }}><History size={16} /></button>
           {canEdit && <button type="button" title="Editar" onClick={(event) => { event.stopPropagation(); openEdit(row); }}><Pencil size={16} /></button>}
           {canEdit && <button type="button" title="Configurar alertas" onClick={(event) => { event.stopPropagation(); openSettings(row); }}><Settings2 size={16} /></button>}

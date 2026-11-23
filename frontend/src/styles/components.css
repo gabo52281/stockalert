@@ -136,15 +136,18 @@
 .data-table tbody tr:last-child td { border-bottom: 0; }
 .data-table tbody tr:hover { background: var(--slate-50); }
 .data-table tr.clickable { cursor: pointer; }
-.row-actions { display: flex; gap: 4px; justify-content: flex-end; }
-.row-actions button {
-  width: 30px; height: 30px;
+/* Contenedor genérico: admite botones con texto (p. ej. /superadmin). */
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+/* Variante exclusiva de botones de icono en las tablas de inventario. */
+.row-actions--icons { gap: 4px; }
+.row-actions--icons button {
+  width: 30px; height: 30px; flex-shrink: 0;
   display: grid; place-items: center;
   border: 1px solid transparent; border-radius: 7px;
   background: transparent; color: var(--slate-500);
   transition: all var(--transition);
 }
-.row-actions button:hover:not(:disabled) { color: var(--blue-600); border-color: var(--blue-100); background: var(--blue-50); }
+.row-actions--icons button:hover:not(:disabled) { color: var(--blue-600); border-color: var(--blue-100); background: var(--blue-50); }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; font-size: 0.8rem; color: var(--slate-500); }
 .pagination__buttons { display: flex; gap: 6px; }
 .pagination__buttons button {

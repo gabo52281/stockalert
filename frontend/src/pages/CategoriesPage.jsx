@@ -70,7 +70,7 @@ export default function CategoriesPage() {
     {
       key: 'actions', label: 'Acciones', align: 'right',
       render: (row) => (
-        <div className="row-actions">
+        <div className="row-actions row-actions--icons">
           {hasPermission('categories:update') && <button type="button" title="Editar" onClick={() => openEdit(row)}><Pencil size={16} /></button>}
           {hasPermission('categories:deactivate') && <button type="button" title={row.active ? 'Desactivar' : 'Activar'} onClick={() => setConfirm({ action: 'toggle', row })}><Archive size={16} /></button>}
           {hasPermission('categories:delete') && <button type="button" title="Eliminar" onClick={() => setConfirm({ action: 'delete', row })}><Trash2 size={16} /></button>}

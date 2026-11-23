@@ -88,7 +88,7 @@ export default function SuppliersPage() {
     {
       key: 'actions', label: 'Acciones', align: 'right',
       render: (row) => (
-        <div className="row-actions">
+        <div className="row-actions row-actions--icons">
           <button type="button" title="Productos suministrados" onClick={() => viewProducts(row)}><Eye size={16} /></button>
           {hasPermission('suppliers:update') && <button type="button" title="Editar" onClick={() => openEdit(row)}><Pencil size={16} /></button>}
           {hasPermission('suppliers:deactivate') && <button type="button" title={row.active ? 'Desactivar' : 'Activar'} onClick={() => setConfirm({ action: 'toggle', row })}><Archive size={16} /></button>}

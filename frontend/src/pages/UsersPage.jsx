@@ -90,7 +90,7 @@ export default function UsersPage() {
     {
       key: 'actions', label: 'Acciones', align: 'right',
       render: (row) => (
-        <div className="row-actions">
+        <div className="row-actions row-actions--icons">
           <button type="button" title="Editar" onClick={() => openEdit(row)}><Pencil size={16} /></button>
           <button type="button" title="Restablecer contraseña" onClick={() => setPasswordOpen(row)}><KeyRound size={16} /></button>
           <button

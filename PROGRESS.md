@@ -146,6 +146,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - El módulo Asistente IA se simplificó a **solo chat**: se eliminaron las tarjetas de resumen, la tabla técnica y el desplegable de cálculo. El chat tiene burbujas redondeadas, avatares, preguntas rápidas y alto fijo con scroll.
 - Corregidas las respuestas "feas": el prompt prohíbe Markdown, encabezados, negritas y listas; exige prosa natural en 2–4 frases, sin inventar ni combinar cifras. El backend elimina cualquier Markdown que el modelo devuelva y el frontend lo muestra como texto plano.
 - El chat ocupa todo el alto del viewport: solo se desplaza el historial de mensajes y el campo de escritura queda siempre visible, sin tener que bajar con scroll. `AppLayout` marca la ruta `/ia` para aplicar este comportamiento sin afectar otros módulos.
+- Corregidos los botones de acciones de `/superadmin`: la regla global `.row-actions button` los forzaba a 30×30 px (diseñada para iconos), por lo que las etiquetas “Editar”, “Ver usuarios”, “Contraseña” y “Desactivar” se apilaban verticalmente. El estilo de icono se aisló en `.row-actions--icons` para productos, categorías, proveedores y usuarios; `/superadmin` conserva botones de texto en una sola fila.
 
 ## Resultados reales finales
 
