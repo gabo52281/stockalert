@@ -270,7 +270,6 @@ const aiChatSchema = z.object({
     question: z.string().trim().min(2).max(500),
     days: z.coerce.number().int().min(7).max(365).default(30),
     leadTimeDays: z.coerce.number().int().min(1).max(90).default(14),
-    consent: z.boolean().default(false),
     history: z.array(z.object({
       role: z.enum(['user', 'assistant']),
       content: z.string().max(1200),

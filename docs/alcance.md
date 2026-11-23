@@ -16,7 +16,7 @@ STOCKALERT es un sistema **multiempresa** de control de inventarios con alertas 
 - Usuarios, perfiles y cambio de contraseña obligatorio en el primer login.
 - Base de datos con migraciones versionadas (incluidas `005_multi_tenant.sql` a `008_harden_tenant_boundaries.sql`), restricciones, índices y transacciones. No se cargan datos demo: el seed está deshabilitado y el SQL antiguo se conserva solo como referencia histórica.
 - Pruebas automatizadas de backend y verificación E2E en navegador con credenciales de una fixture local definidas en variables `TEST_*`/`E2E_*`.
-- Asistente IA con cálculo **local y explicable** (estimación de demanda, stock de seguridad, punto de pedido, riesgo y detección de anomalías a partir de movimientos reales) y copiloto conversacional que usa solo OpenRouter gratuito con consentimiento para enviar un resumen agregado del establecimiento.
+- Asistente IA con cálculo **local y explicable** (estimación de demanda, stock de seguridad, punto de pedido, riesgo y detección de anomalías a partir de movimientos reales) y chat conversacional con OpenAI que responde con un resumen agregado del establecimiento.
 
 ## 2. Excluido explícitamente
 
@@ -26,14 +26,14 @@ Según la formulación del proyecto, quedan fuera de alcance:
 - Integraciones contables o con sistemas de Accounting/ERP.
 - Pasarelas de pago o manejo de transacciones financieras.
 - Aplicación móvil nativa (iOS/Android); la interfaz es web responsive.
-- Modelos de pago y proveedores distintos de OpenRouter gratuito, o predicción probabilística avanzada externa. El copiloto sí envía un resumen agregado del establecimiento a OpenRouter, solo con consentimiento explícito.
+- Predicción probabilística avanzada externa y generación automática de decisiones. El chat sí envía un resumen agregado del establecimiento a OpenAI, sin consentimiento previo.
 - Generación automática de órdenes de compra; las decisiones de reposición las toma el usuario.
 - Logística o transferencias de stock entre establecimientos: cada establecimiento es un tenant aislado.
 - Registro público, credenciales demo y recuperación de contraseña por correo, SSO o doble factor.
 
 La cobertura oficial es determinista (`stock ÷ promedio de salidas diarias`) y sigue siendo la fuente operativa. El asistente IA agrega una estimación complementaria, sin reemplazar las alertas ni decidir compras automáticamente.
 
-**Nota:** los documentos académicos originales excluían la predicción avanzada con IA. Por decisión posterior del usuario se incorpora el módulo IA descrito arriba: el cálculo sigue siendo local y los únicos modelos externos admitidos son los gratuitos de OpenRouter para la conversación, con consentimiento. La generación automática de pedidos sigue fuera.
+**Nota:** los documentos académicos originales excluían la predicción avanzada con IA. Por decisión posterior del usuario se incorpora el módulo IA descrito arriba: el cálculo sigue siendo local y la conversación la genera OpenAI. La generación automática de pedidos sigue fuera.
 
 ## 3. Supuestos
 

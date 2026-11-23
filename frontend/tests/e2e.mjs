@@ -75,13 +75,11 @@ try {
   await statusResponse;
   console.log('7. Copiloto con recomendaciones reales cargado');
 
-  const aiAvailable = await page.getByText('OpenRouter gratuito', { exact: true }).count() > 0;
-  console.log('8. Estado del chat:', aiAvailable ? 'OpenRouter disponible' : 'IA temporalmente fuera de servicio');
+  const aiAvailable = await page.getByText('Asistente IA activo', { exact: true }).count() > 0;
+  console.log('8. Estado del chat:', aiAvailable ? 'Asistente IA activo' : 'IA temporalmente fuera de servicio');
 
   async function ask(label, expectedMessages) {
     await page.getByRole('button', { name: label }).click();
-    const consentButton = page.getByRole('button', { name: 'Autorizar resumen' });
-    if (await consentButton.isVisible().catch(() => false)) await consentButton.click();
     await page.waitForFunction(
       (count) => document.querySelectorAll('.ai-message').length >= count,
       expectedMessages,
@@ -93,9 +91,9 @@ try {
   assert.equal(await page.getByText('Análisis local').count(), 0, 'No debe existir un modo de respuestas locales');
   const firstAnswer = await page.locator('.ai-message__bubble').last().innerText();
   assert.ok(firstAnswer.length > 0, 'Debe mostrarse una respuesta del proveedor o el aviso de servicio no disponible');
-  // `status` solo confirma que hay clave configurada: OpenRouter puede agotar
-  // cuota, devolver un modelo no gratuito o caer. En ese caso el aviso oficial
-  // es el único fallback permitido; nunca una respuesta local ni de pago.
+  // `status` solo confirma que hay clave configurada: OpenAI puede agotar
+  // cuota o caer. En ese caso el aviso oficial es el único fallback permitido;
+  // nunca una respuesta local.
   if (firstAnswer.includes('temporalmente fuera de servicio')) {
     assert.ok(
       firstAnswer.includes('recomendaciones automáticas de STOCKALERT'),
@@ -104,7 +102,7 @@ try {
   } else {
     assert.ok(aiAvailable, 'Sin proveedor configurado no debe mostrarse una respuesta generada');
   }
-  console.log('9. Respuesta mostrada solo desde OpenRouter o aviso de servicio no disponible');
+  console.log('9. Respuesta mostrada solo desde OpenAI o aviso de servicio no disponible');
 
   await ask(/Tengo \$ 500\.000/, 5);
   assert.ok(await page.locator('.ai-message').count() >= 5, 'El chat debe conservar el historial');

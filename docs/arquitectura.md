@@ -21,7 +21,7 @@ Neon PostgreSQL
 Alertas, cobertura, dashboard, reportes, insights locales y chat IA
 ```
 
-La SPA no calcula existencias: representa lo que devuelve la API. La API no calcula por su cuenta el estado de alerta: lo lee de `v_product_inventory`. Los insights predictivos son un cálculo local determinista sobre esa vista y el historial real de movimientos; el chat envía un contexto agregado del mismo tenant a OpenRouter gratuito. Así, pantallas, reportes e IA coinciden con la base de datos.
+La SPA no calcula existencias: representa lo que devuelve la API. La API no calcula por su cuenta el estado de alerta: lo lee de `v_product_inventory`. Los insights predictivos son un cálculo local determinista sobre esa vista y el historial real de movimientos; el chat envía un contexto agregado del mismo tenant a OpenAI. Así, pantallas, reportes e IA coinciden con la base de datos.
 
 No hay PostgreSQL local, Docker ni base de datos alternativa como dependencia: la única base del proyecto es Neon. Para verificación se usa un fixture local desechable, sin credenciales demo.
 
@@ -163,7 +163,7 @@ No existen endpoints para editar o borrar movimientos: el historial es inmutable
 5. Detecta anomalías comparando el último día contra la media y desviación previas.
 6. Devuelve un resumen y una narrativa generados en backend.
 
-`POST /api/ia/chat` es distinto: **no tiene respuesta local ni proveedor de pago como respaldo**. Tras el consentimiento explícito del usuario, envía a la API de OpenRouter el modelo gratuito `openrouter/free`, valida `usage.cost = 0` y un modelo `:free`, y genera el texto solo con un resumen agregado del tenant. Sin consentimiento, sin `OPENROUTER_API_KEY` o ante cuota/timeout/error, responde que la IA está temporalmente fuera de servicio. El contexto nunca incluye SQL, claves ni secretos. Las alertas oficiales siguen siendo las de la vista SQL; el IA es complementario y no crea órdenes de compra.
+`POST /api/ia/chat` es distinto: **no tiene respuesta local como respaldo**. Envía a la API de OpenAI el modelo configurado en `OPENAI_MODEL` (`gpt-5.6-luna` por defecto) con un prompt de analista senior y un resumen agregado del tenant, más una descripción de los módulos de STOCKALERT. No se pide consentimiento: la respuesta siempre la genera OpenAI. Sin `OPENAI_API_KEY`, o ante cuota/timeout/error, responde que el asistente está temporalmente fuera de servicio. El contexto nunca incluye SQL, claves ni secretos. Las alertas oficiales siguen siendo las de la vista SQL; el asistente es complementario y no crea órdenes de compra.
 
 ## 9. Seguridad transversal
 
@@ -172,7 +172,7 @@ No existen endpoints para editar o borrar movimientos: el historial es inmutable
 - Permisos verificados en backend; el frontend solo oculta botones. La cuenta superadministrador y la gestión de usuarios están fuera del alcance de los roles de inventario.
 - Consultas parametrizadas, transacciones con GUCs por petición, RLS/FORCE RLS y predicados explícitos; Helmet, CORS restringido, rate limiting y manejo de errores sin trazas internas en producción.
 - El tenant se deriva del token validado; un `tenant_id` del frontend no altera el aislamiento.
-- El frontend nunca recibe `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET` ni `OPENROUTER_API_KEY`; la clave del modelo gratuito vive solo en el backend/Vercel.
+- El frontend nunca recibe `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET` ni `OPENAI_API_KEY`; la clave de OpenAI vive solo en el backend/Vercel.
 
 ## 10. Conexiones con Neon
 

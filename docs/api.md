@@ -189,7 +189,7 @@ Requiere `reports:read` (y `reports:export` en la interfaz). Los reportes usan l
 | --- | --- | --- |
 | GET | `/insights?days=30&leadTimeDays=14&limit=8` | Cálculo local determinista de indicadores: resumen, recomendaciones y anomalías |
 | GET | `/status` | Disponibilidad del modelo externo y modo del chat |
-| POST | `/chat` | Chat conversacional; requiere consentimiento explícito |
+| POST | `/chat` | Chat conversacional con OpenAI; sin consentimiento previo |
 
 Las tres requieren `indicators:read` y solo devuelven datos del establecimiento del token. La respuesta de `GET /insights` contiene:
 
@@ -199,7 +199,7 @@ Las tres requieren `indicators:read` y solo devuelven datos del establecimiento 
 - `recommendations[]`: `code`, `name`, `stock`, `forecastDailyDemand`, `forecastConfidence`, `daysOfCover`, `expectedDemand`, `safetyStock`, `reorderPoint`, `suggestedQty`, `risk`, `priority`, `reason`.
 - `anomalies[]`: productos con picos de salida atípicos y su `anomalyScore`.
 
-Los insights son un cálculo local determinista (suavizado exponencial con tendencia, stock de seguridad y z-score). En cambio, **el chat usa exclusivamente el modelo gratuito de OpenRouter** (`openrouter/free`), con consentimiento previo (`consent: true`), validación de `usage.cost = 0` y sin fallback local ni de pago. `POST /chat` acepta `question` (2–500 caracteres), `days`, `leadTimeDays`, `consent` y `history` (máximo 8 mensajes), y está limitado a 12 peticiones por minuto por usuario. El contexto enviado es agregado y perteneciente al tenant: nunca incluye SQL, claves ni secretos. Sin consentimiento, sin clave configurada o ante errores del proveedor, el chat informa que la IA está temporalmente fuera de servicio.
+Los insights son un cálculo local determinista (suavizado exponencial con tendencia, stock de seguridad y z-score). En cambio, **el chat usa OpenAI** (`OPENAI_MODEL`, por defecto `gpt-5.6-luna`) con un prompt profesional y sin respuesta local de respaldo. `POST /chat` acepta `question` (2–500 caracteres), `days`, `leadTimeDays` y `history` (máximo 8 mensajes), y está limitado a 12 peticiones por minuto por usuario. El contexto enviado es agregado y perteneciente al tenant: nunca incluye SQL, claves ni secretos. Sin clave configurada, o ante cuota/timeout/error del proveedor, el chat informa que el asistente está temporalmente fuera de servicio.
 
 ## 5. Ejemplo completo
 

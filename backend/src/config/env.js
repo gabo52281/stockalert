@@ -25,13 +25,11 @@ const schema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default('300'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default('900000'),
-  OPENROUTER_API_KEY: z.preprocess(
+  OPENAI_API_KEY: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.string().min(1).optional(),
   ),
-  OPENROUTER_MODEL: z.string().min(1).default('openrouter/free'),
-  OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default('12000'),
-  OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(64).max(1200).default('512'),
+  OPENAI_MODEL: z.string().min(1).default('gpt-5.6-luna'),
   SEED_ADMIN_NAME: z.string().optional(),
   SEED_ADMIN_EMAIL: z.string().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),

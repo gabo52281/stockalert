@@ -1,6 +1,6 @@
 # Pruebas y verificación
 
-Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20, 2026-11-21 y 2026-11-23. La verificación multiempresa se realizó contra una fixture PostgreSQL local/desechable en `127.0.0.1:55432`, donde se aplicaron primero las migraciones `005` a `008`. Con autorización explícita del propietario esas mismas migraciones se aplicaron también a Neon y se promovió `admin@su-dominio.com` a `SUPERADMINISTRADOR` sin tocar su contraseña; no se cargaron seeds en Neon ni se desplegó en Vercel. Esta pasada añade la verificación de aislamiento A/B, de los 10 reportes PDF rediseñados, del copiloto conversacional con OpenRouter gratuito (secciones 3, 8 y 9) y la regresión del acceso del superadministrador (sección 14). Ninguna clave de API ni credencial real se guardó en el repositorio ni en el frontend.
+Todos los resultados registrados aquí corresponden a comandos **ejecutados realmente** el 2026-11-20, 2026-11-21 y 2026-11-23. La verificación multiempresa se realizó contra una fixture PostgreSQL local/desechable en `127.0.0.1:55432`, donde se aplicaron primero las migraciones `005` a `008`. Con autorización explícita del propietario esas mismas migraciones se aplicaron también a Neon y se promovió `admin@su-dominio.com` a `SUPERADMINISTRADOR` sin tocar su contraseña; no se cargaron seeds en Neon ni se desplegó en Vercel. Esta pasada añade la verificación de aislamiento A/B, de los 10 reportes PDF rediseñados, del asistente conversacional con OpenAI (secciones 3, 8 y 9) y la regresión del acceso del superadministrador (sección 14). Ninguna clave de API ni credencial real se guardó en el repositorio ni en el frontend.
 
 ## 1. Entorno usado
 
@@ -31,7 +31,7 @@ Tests       98 passed (98)
 Duration    6.28s
 ```
 
-Ronda del 2026-11-23, **sin pruebas en localhost**: `npm run lint` terminó con 0 errores; `npm run test:permissions` 4/4; `npm run test:fields` 6/6; `npm run test:unit` 4 archivos / 44 pruebas puras con una URL local ficticia solo para el guard (sin servidor ni conexión); y `npm run build` compiló 2109 módulos. Las integraciones con fixture local quedan documentadas arriba como historial, pero no se repitieron en esta ronda.
+Ronda del 2026-11-23, **sin pruebas en localhost**: `npm run lint` terminó con 0 errores; `npm run test:permissions` 4/4; `npm run test:fields` 6/6; `npm run test:unit` 4 archivos / 44 pruebas puras con una URL local ficticia solo para el guard (sin servidor ni conexión); y `npm run build` compiló 2109 módulos. Las integraciones con fixture local quedan documentadas arriba como historial, pero no se repitieron en esta ronda. Tras sustituir OpenRouter por OpenAI se repitieron `lint`, `test:unit` (44/44, incluidas 13 pruebas del chat), `test:permissions`, `test:fields` y `build`, todos con el mismo resultado. No se hizo login en Vercel ni se probó en localhost.
 
 Cobertura:
 
@@ -40,7 +40,7 @@ Cobertura:
 | `tests/tenant-security.test.js` (28) | login con permisos inmediatos; A/B sin fuga en productos, categorías, proveedores, movimientos, dashboard, alertas, indicadores, reportes, IA y configuración; IDs cross-tenant devuelven 404; `tenant_id` del frontend ignorado; validación de relaciones; concurrencia de inventario; superadmin sin inventario ni IA; reset y desactivación; sin exponer hashes |
 | `tests/api.test.js` (15) | `/health`; login inválido 401; ruta privada sin token 401; permiso de rol 403; validación Zod 400; creación de producto stock 0; entrada con stock anterior/resultante; salida con stock resultante; exceso de salida 409; historial conservado; resumen de alertas; dashboard e indicadores; **`/api/ia/insights` con datos reales**; **`/api/ia/status` sin secretos y `/api/ia/chat` sin texto local**; JSON/CSV/PDF con resumen y BOM; logout con token revocado |
 | `tests/ai.test.js` (7) | normalización de serie; sin historial; demanda constante y tendencia; detección de pico atípico; sugerencia de reposición y riesgo; sin reposición cuando hay cobertura; resumen priorizado |
-| `tests/ai-chat.test.js` (14) | presupuestos colombianos y plan entero; intenciones; contexto con cifras reales; estado sin secretos; sin clave y sin consentimiento sin respuesta local; 402/429/timeout; modelo de pago rechazado; respuesta gratuita aceptada y claves sanitizadas; reintento gratuito con contenido vacío |
+| `tests/ai-chat.test.js` (13) | presupuestos colombianos y plan entero; intenciones; contexto con cifras reales; estado sin secretos; sin clave sin respuesta local; respuesta sin consentimiento; 401/402/429/timeout/error; petición a OpenAI con prompt profesional y claves sanitizadas; reintento si la respuesta sale vacía |
 | `tests/alerts.test.js` (6) | `AGOTADO`, `CRITICO`, `BAJO`, `NORMAL`, mínimo 0 y porcentaje por producto |
 | `tests/metrics.test.js` (4) | promedio/cobertura, `INSUFICIENTE`, `NO_CALCULABLE`, valoración |
 | `tests/validation.test.js` (21) | enteros y cadenas de dígitos aceptados; rechazo de decimales, negativos, notación científica, comas y vacío en precios, stock, porcentajes y días; cantidades > 0; formato COP de reportes sin decimales; `formatFilterValue` convierte fechas ISO a `dd/mm/aaaa` |
@@ -124,8 +124,8 @@ Salida real de la pasada final:
 5. Módulo de alertas cargado con filas reales
 6. Módulo de indicadores cargado con cobertura real
 7. Copiloto con recomendaciones reales cargado
-8. Estado del chat: OpenRouter disponible
-9. Respuesta mostrada solo desde OpenRouter o aviso de servicio no disponible
+8. Estado del chat: asistente IA activo
+9. Respuesta mostrada solo desde OpenAI o aviso de servicio no disponible
 10. Segunda pregunta conserva el historial
 11. Nueva conversación reinicia el historial
 12. Reportes con vista previa y descarga PDF: stockalert-inventory-2026-11-20.pdf
@@ -135,7 +135,7 @@ Salida real de la pasada final:
 E2E: 14 comprobaciones superadas, sin errores de JavaScript.
 ```
 
-La prueba comprueba que no haya errores de consola ni excepciones de página. El paso 8 solo confirma que hay clave configurada: si OpenRouter agota cuota, devuelve un modelo no gratuito o cae, el paso 9 acepta exclusivamente el aviso oficial **IA temporalmente fuera de servicio** y nunca una respuesta local o de pago. Durante las pasadas se detectaron y corrigieron errores reales: `aiApi.chat` devolvía `{ data: ... }` y el componente intentaba `response.text.split(...)`; el badge se leía antes de que resolviera `/api/ia/status`; Reportes/Movimientos consultaban el listado privado `/api/users` y generaban dos `403` en consola, sustituido por `/api/users/options`; y el timeout HTTP de la SPA era menor que el tiempo permitido al proveedor. Todo quedó corregido. Anteriormente la misma suite se ejecutó contra el artefacto de producción servido por `npm start` con 10/10 comprobaciones.
+La prueba comprueba que no haya errores de consola ni excepciones de página. El paso 8 solo confirma que hay clave configurada: si OpenAI agota cuota o cae, el paso 9 acepta exclusivamente el aviso oficial **IA temporalmente fuera de servicio** y nunca una respuesta local. Durante las pasadas se detectaron y corrigieron errores reales: `aiApi.chat` devolvía `{ data: ... }` y el componente intentaba `response.text.split(...)`; el badge se leía antes de que resolviera `/api/ia/status`; Reportes/Movimientos consultaban el listado privado `/api/users` y generaban dos `403` en consola, sustituido por `/api/users/options`; y el timeout HTTP de la SPA era menor que el tiempo permitido al proveedor. Todo quedó corregido. Anteriormente la misma suite se ejecutó contra el artefacto de producción servido por `npm start` con 10/10 comprobaciones.
 
 ### E2E específico de campos numéricos
 
@@ -215,18 +215,17 @@ valuation            OK  páginas=2  filas=29
 - Prueba de estrés sintética, sin escribir en la base de datos: `inventario` 250 filas/21 páginas, `movimientos` 600 filas/101 páginas, `criticos` 120 filas/6 páginas y `valoracion` 300 filas/19 páginas. Las 101 páginas de movimientos repiten los 10 encabezados; 0 solapamientos; ningún filtro ISO queda sin convertir; la orientación horizontal se activa automáticamente por número de columnas/columnas monetarias.
 - Durante la verificación se corrigieron: el error `column "product_code" does not exist`, páginas vacías por pie fuera del margen, `switchToPage(3) out of bounds`, el solapamiento del resumen con la columna `Proveedor` y las fechas ISO visibles en los filtros.
 
-## 9. Copiloto conversacional exclusivamente con OpenRouter
+## 9. Asistente conversacional con OpenAI
 
-- **Ya no existen respuestas de chat generadas por reglas locales.** Se eliminaron `localAnswer` y las tablas deterministas de la respuesta del chat. Los cálculos internos siguen consultando Neon, calculando existencias y preparando el resumen agregado que se envía como contexto; nunca redactan la respuesta.
-- `GET /api/ia/status` sin clave devuelve `{"externalModelAvailable":false,"mode":"unavailable","model":null}`, sin exponer secretos. La interfaz muestra **IA temporalmente fuera de servicio**.
-- `POST /api/ia/chat`: sin clave, o ante 402/429/timeout/error de proveedor/modelo de pago, devuelve exactamente: `La IA está temporalmente fuera de servicio. Intenta nuevamente más tarde. Puedes consultar las recomendaciones automáticas de STOCKALERT.` No se sustituye por texto simulado.
-- Sin `consent: true` no se contacta al proveedor y la respuesta es solo un aviso de consentimiento (`text: ''`), nunca una respuesta redactada localmente.
-- La petición, simulada con `global.fetch` en `tests/ai-chat.test.js`, usa `model: "openrouter/free"`, **no** envía array `models` de respaldo, fija `provider.max_price: {prompt: 0, completion: 0}`, `reasoning: {effort: "low"}`, `max_tokens: 512` (512 en el primer intento, hasta 1024 en un único reintento si el modelo gratuito devuelve contenido vacío por agotar tokens en razonamiento), timeout de 12 s y contexto máximo de 3500 caracteres. La cabecera `Authorization` se construye desde `env.OPENROUTER_API_KEY`.
-- Verificación de configuración: al iniciar un proceso con `OPENROUTER_API_KEY` definida en el entorno, `config/env.js` la carga (`keyDesdeEntorno=true`, `modelo=openrouter/free`, `timeout=12000`, `maxTokens=512`) y `status()` pasa a `mode=ia` sin exponer campos con la clave.
-- **Solicitudes auténticas ejecutadas** contra `https://openrouter.ai/api/v1/chat/completions` con la clave configurada en `.env`: la llamada directa devolvió modelos `:free` (`nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-super-vl:free`, `recursive/flint-v1.0:free`) y `usage.cost: 0`. A través de `POST /api/ia/chat` con consentimiento, tres llamadas reales devolvieron `providerUsed: true`, modelos `:free` y texto basado en cifras reales de Neon (tiempos 19,8 s, 8,6 s y 8,3 s). Sin consentimiento: `consentRequired: true`, `providerUsed: false`, `text: ''`. La clave nunca se imprimió ni se incluyó en las respuestas.
-- Durante la verificación real apareció un caso de modelos gratuitos que devolvían contenido vacío por consumir los tokens en razonamiento. Se corrigió con `reasoning: {effort: "low"}` y un único reintento con el mismo `openrouter/free` y más tokens, sin modelos de pago. Tras el ajuste, 6/6 solicitudes auténticas consecutivas devolvieron texto visible (295–464 caracteres) con modelos `:free`. No se activó facturación.
+- **No existen respuestas de chat generadas por reglas locales.** Se eliminaron `localAnswer`, las tablas deterministas de la respuesta y el flujo de consentimiento. Los cálculos internos siguen consultando Neon, calculando existencias y preparando el resumen agregado que se envía como contexto; nunca redactan la respuesta.
+- `GET /api/ia/status` con clave devuelve `externalModelAvailable: true`, `mode: 'ia'` y `model: 'gpt-5.6-luna'`; sin clave devuelve `false`, `'unavailable'` y `null`, sin exponer secretos. La interfaz muestra **IA temporalmente fuera de servicio**.
+- `POST /api/ia/chat`: sin clave, o ante 401/402/403/429/timeout/error de proveedor, devuelve el aviso oficial `El asistente de IA está temporalmente fuera de servicio. Intenta nuevamente en unos instantes. Puedes consultar las recomendaciones automáticas de STOCKALERT.` No se sustituye por texto simulado.
+- No se requiere `consent`: la respuesta siempre la genera OpenAI. El campo `consent` quedó fuera del esquema y el bloque de autorización desapareció del frontend.
+- La petición, simulada con `global.fetch` en `tests/ai-chat.test.js`, usa la URL `https://api.openai.com/v1/chat/completions`, `model: "gpt-5.6-luna"`, `max_completion_tokens` (900, hasta 1800 en un único reintento si la respuesta sale vacía), timeout de 20 s y contexto máximo de 5000 caracteres. No se envían `temperature`, `reasoning` ni `provider`. La cabecera `Authorization` se construye desde `env.OPENAI_API_KEY`.
+- El prompt posiciona al modelo como analista senior de operaciones e inventarios: conclusión breve, cifras clave y acción recomendada, máximo 220 palabras, siempre en español colombiano y apoyado solo en los bloques DATOS y SISTEMA.
+- Cualquier clave que aparezca en el texto devuelto se sustituye por `[CLAVE OCULTA]`.
 - El chat no expone SQL, no tiene herramientas de escritura y el prompt prohíbe modificar, crear o borrar inventario.
-- Búsqueda en `frontend/`: 0 coincidencias de `sk-or-v1-`, `OPENROUTER_API_KEY` ni variables `VITE_` con secretos. La clave quedó configurada solo en `.env` del backend local; **la clave compartida en la conversación anterior debe rotarse** antes de usarla en Vercel.
+- Búsqueda en `frontend/`: 0 coincidencias de `sk-`, `OPENAI_API_KEY` ni variables `VITE_` con secretos. La clave se configura solo en `.env` local y en el backend de Vercel; no se compartió en esta conversación.
 
 ## 10. Configuración de Vercel Services verificada localmente
 
@@ -267,9 +266,9 @@ La inversión estimada para cubrir la demanda de 14 días es 236200.
 ## 12. Limitaciones
 
 - No se ejecutaron seeds en la Neon configurada por el usuario. Las migraciones `005`–`008` y la promoción explícita del superadministrador sí se ejecutaron allí con autorización; la verificación completa de regresión se realizó contra el fixture local `127.0.0.1:55432`.
-- No se dispuso de cuenta/acceso a Vercel: **no se realizó un despliegue real**. Solo se verificó la configuración y el artefacto local. La clave de OpenRouter debe configurarse como `OPENROUTER_API_KEY` en el entorno del backend de Vercel; nunca como variable `VITE_`.
-- La clave `sk-or-v1-…` aparecida en la conversación no se guardó ni se repitió. Debe considerarse comprometida y **rotarse** antes de configurarla en Vercel.
-- Sin clave, el copiloto no envía datos a proveedores externos y muestra el aviso de IA fuera de servicio; no genera respuestas de chat por reglas locales. Con consentimiento y clave, envía contexto agregado del establecimiento a OpenRouter; nunca SQL, secretos ni datos de otro tenant. No se activó facturación ni se usó ningún modelo de pago.
+- No se dispuso de cuenta/acceso a Vercel: **no se realizó un despliegue real desde este entorno**. Solo se verificó la configuración y el artefacto local. `OPENAI_API_KEY` y `OPENAI_MODEL` deben configurarse en el entorno del backend de Vercel; nunca como variables `VITE_`.
+- La antigua clave de OpenRouter fue retirada de `.env` en esta ronda. La clave de OpenAI no se pegó en el repositorio ni se compartió en esta conversación; debe configurarse directamente en `.env` y en Vercel.
+- Sin clave, el asistente no envía datos a proveedores externos y muestra el aviso de servicio no disponible; no genera respuestas de chat por reglas locales. Con clave, envía contexto agregado del establecimiento a OpenAI; nunca SQL, secretos ni datos de otro tenant. La facturación depende de la cuenta OpenAI del propietario.
 - No se borraron datos de producción. En la fixture local sí se aplicaron DDL de migración y se crearon/eliminaron registros temporales de pruebas A/B; nada de eso se replicó a Neon.
 
 ## 13. Repetir la verificación
@@ -278,7 +277,7 @@ La inversión estimada para cubrir la demanda de 14 días es 236200.
 # Configuración inicial
 cp .env.example .env
 # Editar DATABASE_URL (pooler de Neon), DIRECT_URL y JWT_SECRET.
-# Opcional: OPENROUTER_API_KEY solo en backend/Vercel (nunca VITE_*).
+# Opcional para el chat: OPENAI_API_KEY y OPENAI_MODEL solo en backend/Vercel (nunca VITE_*).
 
 npm install
 npm run lint
@@ -316,7 +315,7 @@ npm run test:e2e --workspace=frontend
 
 Las integraciones se activan cuando hay `DATABASE_URL` **y** las credenciales `TEST_*`. Para aplicar migraciones de forma explícita: `npm run migrate` (en una base no local exige `ALLOW_PRODUCTION_MIGRATION=true` y autorización del propietario). `npm run seed` está deshabilitado a propósito.
 
-Variables nuevas del copiloto: `OPENROUTER_API_KEY` (solo servidor; vacía = IA fuera de servicio), `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512`. En Vercel deben ir en la sección de variables de entorno del servicio **backend**; el frontend no necesita ninguna.
+Variables del asistente: `OPENAI_API_KEY` (solo servidor; vacía = asistente fuera de servicio) y `OPENAI_MODEL=gpt-5.6-luna`. En Vercel deben ir en la sección de variables de entorno del servicio **backend**; el frontend no necesita ninguna.
 
 ## 14. Regresión del acceso del superadministrador
 

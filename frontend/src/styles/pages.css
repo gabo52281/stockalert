@@ -241,16 +241,6 @@
 .ai-chat__send { flex-shrink: 0; }
 .ai-chat__error { margin-bottom: 10px; padding: 9px 12px; border-radius: var(--radius-sm); background: var(--orange-100); color: var(--orange-600); font-size: 0.76rem; }
 
-.ai-consent {
-  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 12px; align-items: center;
-  padding: 12px 14px; margin-bottom: 14px; border-radius: var(--radius-sm);
-  background: var(--blue-50); border: 1px solid var(--blue-100); color: var(--navy-700);
-}
-.ai-consent > svg { color: var(--blue-600); }
-.ai-consent strong { font-size: 0.8rem; }
-.ai-consent p { font-size: 0.74rem; line-height: 1.5; margin-top: 3px; color: var(--slate-500); }
-.ai-consent__actions { display: flex; gap: 7px; flex-wrap: wrap; }
-
 .ai-thinking { display: flex; align-items: center; gap: 5px; font-size: 0.74rem; color: var(--slate-400); padding-left: 40px; }
 .ai-thinking__dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue-500); animation: ai-pulse 1s infinite alternate; }
 .ai-thinking__dot:nth-child(2) { animation-delay: 0.18s; }
@@ -271,7 +261,5 @@
   .ai-recommendation { grid-template-columns: 32px minmax(0, 1fr); }
   .ai-recommendation__action { grid-column: 2; text-align: left; }
   .ai-message__body { max-width: 90%; }
-  .ai-consent { grid-template-columns: 22px minmax(0, 1fr); }
-  .ai-consent__actions { grid-column: 2; }
   .ai-chat__composer { flex-direction: column; align-items: stretch; }
 }

@@ -51,7 +51,7 @@ Rutas protegidas en la SPA: si el usuario no tiene el permiso de la ruta, se red
 - **No existe `DEMO_PASSWORD` ni carga demo:** `npm run seed` está deshabilitado y no crea usuarios ni contraseñas. El SQL en `database/seeds/` se conserva solo como referencia histórica y no debe ejecutarse en bases multiempresa.
 - El usuario inicial se crea con `npm run admin` usando `SEED_ADMIN_*` (incluido `SEED_ADMIN_ESTABLISHMENT_ID`); las credenciales no se escriben en el código y las contraseñas se guardan como hashes bcrypt.
 - La promoción a superadministrador es manual: `PROMOTE_SUPERADMIN_EMAIL` y `CONFIRM_PROMOTE_SUPERADMIN=true` con `npm run promote:superadmin`. No modifica contraseñas ni imprime secretos.
-- El cálculo del Asistente IA se ejecuta en backend con datos ya autorizados. El copiloto conversacional **sí envía información a un tercero**: un resumen agregado del establecimiento a OpenRouter, solo tras consentimiento explícito, con autenticación y rate limit, usando exclusivamente `openrouter/free` (`usage.cost === 0`). Sin clave o sin consentimiento muestra servicio no disponible; no hay fallback local ni de pago. Las variables `OPENROUTER_*` viven solo en backend/Vercel.
+- El cálculo del Asistente IA se ejecuta en backend con datos ya autorizados. El chat **envía información a un tercero**: un resumen agregado del establecimiento a OpenAI, con autenticación y rate limit, usando el modelo de `OPENAI_MODEL`. No hay consentimiento previo; sin clave o ante error muestra servicio no disponible, sin respuesta local de respaldo. Las variables `OPENAI_API_KEY` y `OPENAI_MODEL` viven solo en backend/Vercel.
 
 ## 6. Aislamiento multiempresa
 
@@ -68,7 +68,7 @@ Rutas protegidas en la SPA: si el usuario no tiene el permiso de la ruta, se red
 3. `npm run seed` está deshabilitado: no hay datos ni credenciales demo que cargar.
 4. Crear el usuario inicial con `npm run admin` y cambiar contraseñas iniciales; promover al superadministrador solo de forma manual y autorizada.
 5. Las migraciones 005-008 ya están aplicadas a Neon con autorización explícita; no ejecutarlas de nuevo sin `ALLOW_PRODUCTION_MIGRATION=true` y una nueva autorización.
-6. Verificar `/health`, login por rol, `/superadmin`, `/api/ia/status`, el consentimiento del chat y exportaciones aisladas antes de abrir el acceso.
+6. Verificar `/health`, login por rol, `/superadmin`, `/api/ia/status`, una pregunta del chat y exportaciones aisladas antes de abrir el acceso.
 7. Confirmar que el bundle de frontend no contiene secretos y que las rutas `/api` responden en el mismo dominio.
 8. En Vercel, mantener las variables solo en la configuración del proyecto; nunca en el repositorio.
 

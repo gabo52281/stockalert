@@ -2,6 +2,7 @@
 
 const request = require('supertest');
 const app = require('../src/app');
+const env = require('../src/config/env');
 const { query, runAsSystem } = require('../src/config/database');
 const { nextCode } = require('./helpers');
 
@@ -182,27 +183,29 @@ describeDatabase('API REST de STOCKALERT', () => {
     expect(status.status).toBe(200);
     expect(status.body.data).toHaveProperty('externalModelAvailable');
     expect(status.body.data).not.toHaveProperty('apiKey');
+    expect(status.body.data).not.toHaveProperty('OPENAI_API_KEY');
     expect(status.body.data).not.toHaveProperty('OPENROUTER_API_KEY');
   });
 
   it('nunca devuelve texto de chat generado por reglas locales', async () => {
-    const question = 'Descuenta 5 unidades de arroz';
-    const response = await request(app)
-      .post('/api/ia/chat')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ question, consent: false });
-    expect(response.status).toBe(200);
-    expect(response.body.data.providerUsed).toBe(false);
-    expect(response.body.data.table ?? null).toBeNull();
+    const previousKey = env.OPENAI_API_KEY;
+    env.OPENAI_API_KEY = '';
+    try {
+      const response = await request(app)
+        .post('/api/ia/chat')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ question: 'Descuenta 5 unidades de arroz' });
+      expect(response.status).toBe(200);
 
-    const data = response.body.data;
-    if (data.outOfService) {
+      const data = response.body.data;
+      expect(data.providerUsed).toBe(false);
+      expect(data.table ?? null).toBeNull();
+      expect(data.outOfService).toBe(true);
       expect(data.text).toContain('temporalmente fuera de servicio');
-    } else {
-      expect(data.consentRequired).toBe(true);
-      expect(data.text).toBe('');
+      expect(data.text).not.toContain('No puedo modificar el inventario desde el chat');
+    } finally {
+      env.OPENAI_API_KEY = previousKey;
     }
-    expect(data.text).not.toContain('No puedo modificar el inventario desde el chat');
   });
 
   it('genera reportes en JSON, CSV y PDF', async () => {

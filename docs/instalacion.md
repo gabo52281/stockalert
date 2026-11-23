@@ -98,7 +98,7 @@ Un repositorio, un proyecto, dos servicios (`backend` y `frontend`) en el mismo 
    - `JWT_SECRET`
    - `CORS_ORIGIN=https://su-dominio.vercel.app`
    - `NODE_ENV=production`
-   - `OPENROUTER_API_KEY` y el resto de `OPENROUTER_*` solo en el servicio `backend`
+   - `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-5.6-luna` solo en el servicio `backend` (nunca `VITE_*`)
    - No active `ALLOW_PRODUCTION_MIGRATION` sin autorización explícita para aplicar 005-008 en Neon.
 4. Despliegue. No cree un backend externo ni un segundo proyecto.
 

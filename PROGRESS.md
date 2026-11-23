@@ -12,9 +12,9 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Creados tres usuarios operativos en el establecimiento 1 (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` y `CONSULTA`) con la misma contraseña; se verificó el login directamente contra Neon, sin servidor local. Las credenciales se entregaron al propietario fuera del repositorio.
 - El contexto de tenant se toma del JWT (`pv`/`est`) y se valida contra la base de datos: usuario real, `password_version`, establecimiento activo y token no revocado. Se propaga con `AsyncLocalStorage` y GUCs por transacción; RLS/FORCE RLS, predicados SQL explícitos y `fn_app_is_system()` como único bypass. El `tenant_id` del frontend se ignora.
 - Migraciones `005`–`008` incluidas en el repositorio y **aplicadas a Neon con autorización explícita**; `admin@su-dominio.com` promovido a `SUPERADMINISTRADOR` sin cambiar contraseña. Despliegue aún pendiente.
-- Insights deterministas: cálculo local de indicadores. Chat conversacional: **exclusivamente OpenRouter gratuito** (`openrouter/free`, `usage.cost = 0`), con consentimiento y sin fallback local ni de pago.
+- Insights deterministas: cálculo local de indicadores. Chat conversacional: **OpenAI** (`OPENAI_MODEL=gpt-5.6-luna`), con prompt profesional, contexto agregado por establecimiento y sin consentimiento ni respuestas locales de respaldo.
 - Seed demo deshabilitado: no hay credenciales demo en documentación ni tests. Las pruebas usan `TEST_*`/`E2E_*` del entorno contra un fixture local desechable.
-- Despliegue real en Vercel: **autorizado pero bloqueado** porque no hay CLI/sesión autenticada ni proyecto enlazado en este entorno; Neon ya está migrado y con el superadministrador promovido. La clave de OpenRouter debe configurarse solo en el backend y la clave expuesta en una conversación anterior debe rotarse.
+- Despliegue real en Vercel: **autorizado pero no ejecutado desde este entorno**. Neon ya está migrado y con el superadministrador promovido. La clave `OPENAI_API_KEY` debe configurarse solo en el servicio backend (nunca como `VITE_*`); la antigua clave de OpenRouter quedó fuera de `.env` y debe considerarse retirada.
 
 ## FASE 1 — Análisis y planificación
 
@@ -69,7 +69,7 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - README, instalación, arquitectura, base de datos, API, seguridad, alcance, manual de usuario y resultados reales de pruebas actualizados.
 - Eliminadas las referencias a PostgreSQL local, Docker, imágenes/compose y entornos múltiples como dependencia del proyecto.
 - Documentadas la arquitectura multiempresa, las migraciones 005–008, el contexto de tenant y los permisos del superadministrador.
-- Documentado el modelo IA local para insights y el chat con OpenRouter gratuito.
+- Documentado el modelo IA local para insights y el chat con OpenAI (antes OpenRouter; ver FASE 13).
 
 ## FASE 7 — Refactorización a Neon y Vercel
 
@@ -101,9 +101,9 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 
 - Rediseño de los 10 reportes: encabezado azul oscuro con STOCKALERT, título y fecha/hora en `es-CO`, filtros legibles, tabla con anchos fijos, encabezados repetidos, altura de fila adaptable, filas alternadas suaves, cifras a la derecha, texto a la izquierda y pie `Página X de Y` calculado en dos pasadas.
 - A4 horizontal automático cuando hay 8+ columnas o 3+ columnas monetarias; resúmenes útiles por reporte; mismo formato COP/entero en PDF, CSV y vista previa.
-- `AiInsightsPage.jsx` convertida en copiloto: resumen, recomendaciones, chat con historial, indicador de progreso, tablas pequeñas, preguntas rápidas, nueva conversación y consentimiento explícito antes de enviar datos agregados.
-- Backend IA: `ai-chat.service.js` con intents, presupuesto determinista, validación de modelo gratuito (`openrouter/free`, `provider.max_price` en cero, costo 0 y modelo `:free`), timeout, `max_tokens`, `reasoning.effort: low`, límite por usuario y aviso exacto de IA fuera de servicio en 402/429/timeout/errores de proveedor.
-- La clave solo existe en backend/Vercel como `OPENROUTER_API_KEY`; sin clave no se envían datos y el chat informa que la IA está temporalmente fuera de servicio. No hay variables `VITE_` con secretos ni modelos de pago o respuestas locales como fallback. El contexto es agregado del tenant y nunca contiene SQL ni secretos.
+- `AiInsightsPage.jsx` convertida en copiloto: resumen, recomendaciones, chat con historial, indicador de progreso, tablas pequeñas, preguntas rápidas y nueva conversación. El consentimiento original fue eliminado en FASE 13.
+- Backend IA (histórico): `ai-chat.service.js` con intents, presupuesto determinista y validación de modelo gratuito de OpenRouter. Esa capa de proveedor fue reemplazada por OpenAI en FASE 13; los intents y el presupuesto determinista se conservan.
+- La clave solo existe en backend/Vercel (antes `OPENROUTER_API_KEY`, ahora `OPENAI_API_KEY`); sin clave no se envían datos y el chat informa que el asistente está temporalmente fuera de servicio. No hay variables `VITE_` con secretos ni respuestas locales de respaldo. El contexto es agregado del tenant y nunca contiene SQL ni secretos.
 
 ## FASE 10 — Arquitectura multiempresa
 
@@ -134,6 +134,16 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - `backend/package.json` ahora usa `migrate.js build` en su script `build`. Ese comando aplica migraciones solo en local o con autorización explícita; en producción sin autorización imprime el aviso y termina con código 0.
 - `npm run dev` y `npm run migrate` conservan su comportamiento estricto. Las migraciones 005–008 siguen aplicadas y no se repiten.
 
+## FASE 13 — Asistente IA con OpenAI
+
+**Estado:** COMPLETADA
+
+- Sustituido OpenRouter por OpenAI en `backend/src/services/ai-chat.service.js`: endpoint `https://api.openai.com/v1/chat/completions`, modelo configurable en `OPENAI_MODEL` (`gpt-5.6-luna` por defecto), `max_completion_tokens`, timeout de 20 s y un único reintento si la respuesta sale vacía.
+- Prompt rediseñado como analista senior de operaciones e inventarios: conclusión, cifras clave y acción recomendada, máximo 220 palabras, siempre en español colombiano y apoyado solo en el bloque DATOS y en las capacidades de STOCKALERT.
+- Eliminado el flujo de consentimiento: `consentRequired` ya no se exige, se quitó el bloque de autorización del frontend y el campo `consent` del esquema. La respuesta siempre la genera OpenAI; no hay texto local de respaldo.
+- `OPENAI_API_KEY` y `OPENAI_MODEL` creados en `.env` (ignorado por Git) y en `.env.example`; retiradas las variables y la clave de OpenRouter. La clave real debe pegarse en `.env` y configurarse solo en el backend de Vercel.
+- Actualizadas las pruebas unitarias del chat, la prueba de API, el E2E opcional y toda la documentación para reflejar OpenAI y el nuevo flujo sin consentimiento.
+
 ## Resultados reales finales
 
 La última ronda de verificación se resume en las siete primeras filas; el resto corresponde a comprobaciones de fases anteriores y se conserva como histórico.
@@ -153,13 +163,13 @@ La última ronda de verificación se resume en las siete primeras filas; el rest
 | `npm run test:unit` sin base de datos | 4 archivos, 44/44 pruebas puras (ronda anterior) |
 | `npm run test:fields` | 6/6 pruebas de enteros, decimales de PostgreSQL, COP, borrado en vivo, cursor y ausencia de `type="number"` (ronda anterior) |
 | `npm run dev` | arranque comprobado en ronda anterior; migraciones 005–008 aplicadas a Neon con autorización |
-| E2E en desarrollo | 14/14 comprobaciones con credenciales de entorno, incluye respuestas de OpenRouter, historial, nueva conversación y descarga PDF (ronda anterior) |
+| E2E en desarrollo | 14/14 comprobaciones con credenciales de entorno, incluía respuestas del proveedor, historial, nueva conversación y descarga PDF (ronda anterior) |
 | E2E numérico en navegador | 10/10 comprobaciones: Ctrl+A + Backspace/Delete, borrado uno por uno, reemplazo, dígitos intermedios, pegado, scroll, guardado y móvil (ronda anterior) |
 | E2E de pestañas de movimientos | 10/10 comprobaciones: una sola pestaña activa, cambios repetidos, selección de productos, borrado de cantidades, stock, historial, alertas y responsive (ronda anterior) |
 | E2E contra artefacto de producción en un solo puerto | 10/10 comprobaciones, sin errores de consola (ronda anterior) |
 | Reportes PDF reales | 10/10 en `OK`: 1–8 páginas por reporte, fechas `dd/mm/aaaa`, COP sin decimales, 0 solapamientos (ronda anterior) |
 | Estrés de PDFs | 250/600/120/300 filas, hasta 101 páginas, encabezados repetidos, 0 solapamientos, sin escribir en BD (ronda anterior) |
-| Copiloto / OpenRouter | sin respuestas locales ni modelos de pago como fallback; sin consentimiento no hay llamada; 402, 429, timeout y modelo de pago se rechazan; `reasoning.effort: low` y reintento gratuito si el contenido sale vacío; llamadas auténticas con modelos `:free` y costo 0; 0 secretos en frontend |
+| Asistente / OpenAI | sin respuestas locales de respaldo; no requiere consentimiento; 401/402/403/429, timeout y errores de proveedor se rechazan; reintento único si la respuesta sale vacío; claves en el texto son sanitizadas; 0 secretos en frontend |
 | Configuración Vercel Services | JSON válido, servicios `backend`/`frontend`, rewrites y fallback verificados; entrypoint Express sin `listen()` |
 | Build del servicio frontend | `npm run build --workspace=frontend` correcto en ronda anterior |
 
@@ -175,17 +185,17 @@ La verificación actual usa un fixture PostgreSQL local desechable. Ese motor **
 
 - Despliegue del código multiempresa a Vercel: autorizado por el propietario, pero bloqueado por falta de CLI/sesión autenticada; hasta entonces la versión anterior no entiende los GUC/RLS y puede quedar incompatible con el esquema migrado.
 - Alta de usuarios operativos del establecimiento 1 desde `/superadmin` (la cuenta heredada quedó como superadministrador global y sin tenant).
-- Verificación funcional contra Neon ya migrado; configuración de `OPENROUTER_API_KEY` solo en el servicio backend y rotación de la clave expuesta en una conversación anterior.
+- Configuración de `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-5.6-luna` solo en el servicio backend de Vercel; pegar la clave real en `.env` local sin versionarla.
 
 ## Limitaciones verificadas
 
 - No se cargó el seed en Neon; el seed está deshabilitado. Las migraciones 005–008 sí se ejecutaron allí con autorización y se verificó la conservación de usuarios, categorías, proveedores, productos y movimientos.
-- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados. No se activó facturación ni se usó un modelo de pago.
-- La clave de OpenRouter mencionada en una conversación anterior no se guardó ni se repitió; debe rotarse antes de usarla.
-- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`, con la clave de OpenRouter vacía.
+- No hay cuenta/acceso a Vercel: no se afirma despliegue real. La configuración y el artefacto local sí fueron comprobados. La facturación de OpenAI depende de la clave que configure el propietario.
+- La antigua clave de OpenRouter fue eliminada de `.env` en esta ronda; la nueva clave de OpenAI no se pegó en el repositorio ni se compartió en esta conversación.
+- `.env` está ignorado por Git; el repositorio solo versiona `.env.example`, con `OPENAI_API_KEY` vacía y `OPENAI_MODEL=gpt-5.6-luna`.
 
 ## Estado final
 
-La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Incluye la arquitectura multiempresa con panel `/superadmin`, los 10 reportes PDF rediseñados, los insights deterministas locales y el copiloto conversacional con modelo gratuito de OpenRouter como **única** fuente del texto del chat (sin fallback local ni de pago), además de los campos numéricos/monetarios estandarizados con validación backend estricta.
+La aplicación conserva autenticación, roles, productos, categorías, proveedores, movimientos IN/OUT, historial, alertas, indicadores, dashboard, gráficas, reportes CSV/PDF, usuarios y diseño responsive. Incluye la arquitectura multiempresa con panel `/superadmin`, los 10 reportes PDF rediseñados, los insights deterministas locales y el asistente conversacional con OpenAI como **única** fuente del texto del chat (sin fallback local), además de los campos numéricos/monetarios estandarizados con validación backend estricta.
 
-El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET` y, de forma opcional, `OPENROUTER_API_KEY` ya rotada en Vercel; ejecutar `npm install` y `npm run dev`; las migraciones 005–008 ya están aplicadas en Neon; crear establecimientos y cuentas desde `/superadmin`; y desplegar un único repositorio en Vercel con `OPENROUTER_MODEL=openrouter/free`, `OPENROUTER_TIMEOUT_MS=12000` y `OPENROUTER_MAX_TOKENS=512` en el servicio backend. No existen credenciales demo: las pruebas usan variables de entorno `TEST_*`/`E2E_*` y un fixture local.
+El flujo de entrega es: copiar `.env.example` como `.env`, pegar la URL pooler de Neon, definir `JWT_SECRET` y, para el chat, `OPENAI_API_KEY` y `OPENAI_MODEL=gpt-5.6-luna` solo en el backend; ejecutar `npm install` y `npm run dev`; las migraciones 005–008 ya están aplicadas en Neon; crear establecimientos y cuentas desde `/superadmin`; y desplegar un único repositorio en Vercel con esas dos variables en el servicio backend. No existen credenciales demo: las pruebas usan variables de entorno `TEST_*`/`E2E_*` y un fixture local.

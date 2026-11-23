@@ -153,4 +153,4 @@ Cada establecimiento se crea desde el panel `/superadmin`, preferiblemente con `
 
 `GET /api/ia/insights` consulta `v_product_inventory` y agrupa `inventory_movements` de tipo `OUT` por producto y día, siempre con el predicado de tenant. Es un cálculo local determinista en `backend/src/services/ai.service.js`: no crea tablas nuevas ni modifica el esquema.
 
-El chat conversacional (`POST /api/ia/chat`) se construye con el mismo repositorio filtrado: envía a OpenRouter gratuito (`openrouter/free`, `usage.cost = 0`) un resumen agregado del establecimiento, sin SQL, claves ni secretos. No hay respuesta local ni modelo de pago como respaldo; sin consentimiento o sin clave, el chat informa que la IA está temporalmente fuera de servicio.
+El chat conversacional (`POST /api/ia/chat`) se construye con el mismo repositorio filtrado: envía a OpenAI un resumen agregado del establecimiento, sin SQL, claves ni secretos. No hay respuesta local como respaldo; sin clave, el chat informa que el asistente está temporalmente fuera de servicio.

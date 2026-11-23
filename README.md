@@ -1,6 +1,6 @@
 # STOCKALERT
 
-Sistema web multiempresa de gestión y control de inventarios con alertas preventivas, indicadores, reportes y copiloto IA conversacional vía OpenRouter gratuito.
+Sistema web multiempresa de gestión y control de inventarios con alertas preventivas, indicadores, reportes y asistente IA conversacional vía OpenAI.
 
 ## Estado actual
 
@@ -10,7 +10,7 @@ Sistema web multiempresa de gestión y control de inventarios con alertas preven
 - **API relativa:** el frontend siempre llama a `/api`. Vite hace de proxy en desarrollo y Vercel enruta al mismo dominio en producción.
 - **Despliegue:** un repositorio y un proyecto de Vercel Services con dos servicios: `backend` (Express) y `frontend` (Vite). No hay dominios ni despliegues separados.
 - **Arquitectura multiempresa:** `SUPERADMINISTRADOR` global + establecimientos aislados + usuarios por establecimiento + panel `/superadmin`. El superadministrador no tiene acceso a inventario ni a IA.
-- **IA:** el módulo Asistente IA calcula indicadores en backend y su copiloto conversacional usa **solo OpenRouter gratuito** (`openrouter/free`, `usage.cost === 0`). Envía contexto agregado del establecimiento a OpenRouter únicamente tras consentimiento; sin clave o sin consentimiento muestra aviso de servicio no disponible. No hay fallback local ni de pago.
+- **IA:** el módulo Asistente IA calcula indicadores en backend y su chat usa **OpenAI** (`OPENAI_MODEL`, por defecto `gpt-5.6-luna`) con un prompt profesional y un resumen agregado del establecimiento autenticado. No hay consentimiento ni respuestas locales de respaldo: sin clave, el chat muestra el aviso de servicio no disponible.
 
 ## Multiempresa (resumen)
 
@@ -78,7 +78,7 @@ Todas van en `stockalert/.env`:
 | `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS` | No | Límites HTTP. |
 | `SEED_ADMIN_*` | No | Datos para `npm run admin`, incluido `SEED_ADMIN_ESTABLISHMENT_ID`. |
 | `PROMOTE_SUPERADMIN_EMAIL`, `CONFIRM_PROMOTE_SUPERADMIN` | No | Promoción manual a superadministrador; requieren el correo y `true` para confirmar. |
-| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_TIMEOUT_MS`, `OPENROUTER_MAX_TOKENS` | No | Copiloto IA: solo backend; modelo gratuito `openrouter/free`. Sin clave, IA no disponible. |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | No | Asistente IA: solo backend. Modelo por defecto `gpt-5.6-luna`. Sin clave, IA no disponible. |
 | `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, `TEST_CONSULTA_EMAIL`, `TEST_CONSULTA_PASSWORD`, `TEST_ADMIN_ESTABLISHMENT_ID` | No | Credenciales de la fixture local para pruebas de integración. |
 | `E2E_EMAIL`, `E2E_PASSWORD`, `E2E_HOME_PATH` | No | Credenciales y ruta inicial esperada para pruebas E2E locales. |
 | `ALLOW_NONLOCAL_TESTS` | No | Habilita pruebas contra una BD no local; por defecto desactivado. |
@@ -107,7 +107,7 @@ El módulo **Asistente IA** (`/ia`) calcula en backend, con los movimientos del 
 - Detección de picos atípicos (anomalías) y una narrativa resumida.
 - Confianza de la estimación según la cantidad de días con historial.
 
-Ese cálculo es **local, determinista y explicable**; las alertas oficiales de stock mínimo siguen calculándose en `v_product_inventory`. El **copiloto conversacional**, en cambio, no genera respuestas por reglas locales: usa exclusivamente OpenRouter en su modalidad gratuita (`openrouter/free`, `usage.cost === 0`), con autenticación, consentimiento y rate limit. El backend construye un contexto agregado del establecimiento y lo envía a OpenRouter **solo después de que el usuario autorice el envío**: el copiloto sí comparte información agregada con un tercero cuando hay consentimiento. Sin clave configurada o sin consentimiento muestra un aviso de servicio no disponible; no hay fallback local ni de pago.
+Ese cálculo es **local, determinista y explicable**; las alertas oficiales de stock mínimo siguen calculándose en `v_product_inventory`. El **chat del asistente**, en cambio, no genera respuestas por reglas locales: usa OpenAI con autenticación y rate limit. El backend construye un contexto agregado y aislado del establecimiento (productos, existencias, movimientos, reposición sugerida y presupuesto cuando aplica) y se lo envía a OpenAI junto con una descripción de los módulos de STOCKALERT para producir una respuesta profesional y basada en cifras reales. Sin clave configurada, ante error de cuota o por timeout muestra el aviso oficial de servicio no disponible; no hay fallback local.
 
 ## Migraciones
 
@@ -125,7 +125,7 @@ Las migraciones de la arquitectura multiempresa son `005_multi_tenant.sql`, `006
 
 1. Suba este repositorio a GitHub (sin `.env`; está ignorado).
 2. En Vercel: **Add New → Project** e importe ese repositorio. Vercel detecta dos servicios; conserve los nombres `backend` y `frontend` y sus raíces `backend/` y `frontend/`.
-3. Configure las variables de entorno del proyecto: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CORS_ORIGIN=https://su-dominio.vercel.app` y `NODE_ENV=production`. `OPENROUTER_*` va solo en el servicio `backend`. No active `ALLOW_PRODUCTION_MIGRATION` salvo autorización explícita para las migraciones 005-008.
+3. Configure las variables de entorno del proyecto: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CORS_ORIGIN=https://su-dominio.vercel.app` y `NODE_ENV=production`. `OPENAI_API_KEY` y `OPENAI_MODEL` van solo en el servicio `backend` (nunca como `VITE_*`). No active `ALLOW_PRODUCTION_MIGRATION` salvo autorización explícita para las migraciones 005-008.
 4. Despliegue. Cada servicio instala y compila sus dependencias de forma independiente:
    - `backend` exporta Express desde `backend/api/index.js` (sin `app.listen()`) y su build usa `migrate.js build`: en producción solo aplica migraciones si `ALLOW_PRODUCTION_MIGRATION=true`; si no, las omite sin fallar el despliegue.
    - `frontend` compila la SPA en `frontend/dist` y sirve el fallback de React Router.
@@ -133,7 +133,7 @@ Las migraciones de la arquitectura multiempresa son `005_multi_tenant.sql`, `006
 
 `vercel.json` enruta `/api` y `/api/*` al servicio `backend` (sin quitar el prefijo), `/health` también al backend y el resto al servicio `frontend`. Recargar `/productos`, `/ia`, `/superadmin`, etc. funciona gracias al fallback definido dentro del servicio frontend. No se añadieron service bindings: el navegador llama a `/api` en el mismo dominio.
 
-Las migraciones `005`–`008` ya se aplicaron a Neon con autorización explícita y `admin@su-dominio.com` fue promovido a `SUPERADMINISTRADOR` sin cambiar su contraseña; no se ha realizado un despliegue real desde este entorno. El 2026-11-23 se corrigió el acceso del superadministrador: el login siempre aterriza en `/superadmin`, las rutas de inventario lo devuelven a su panel, el layout no pide alertas sin permiso y `/auth/me` respalda los permisos por rol si el backend desplegado es antiguo. La regresión unitaria quedó versionada en `frontend/tests/permissions.test.mjs`. También se crearon tres usuarios operativos en el establecimiento 1 (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` y `CONSULTA`) con la misma contraseña, verificados con login directo contra Neon. Esta ronda se validó **sin pruebas en localhost**: `lint` sin errores, `test:permissions` 4/4, `test:fields` 6/6, `test:unit` 44/44 sin conexión a base (URL local ficticia solo para el guard de pruebas puras) y `build` correcto de 2109 módulos. El primer deploy de `aa40498` falló porque el build del backend exigía autorización para migrar en Neon; se corrigió para que el build omita las migraciones cuando no están autorizadas, sin cambiar `npm run dev` ni `npm run migrate`.
+Las migraciones `005`–`008` ya se aplicaron a Neon con autorización explícita y `admin@su-dominio.com` fue promovido a `SUPERADMINISTRADOR` sin cambiar su contraseña; no se ha realizado un despliegue real desde este entorno. El 2026-11-23 se corrigió el acceso del superadministrador: el login siempre aterriza en `/superadmin`, las rutas de inventario lo devuelven a su panel, el layout no pide alertas sin permiso y `/auth/me` respalda los permisos por rol si el backend desplegado es antiguo. La regresión unitaria quedó versionada en `frontend/tests/permissions.test.mjs`. También se crearon tres usuarios operativos en el establecimiento 1 (`ADMINISTRADOR`, `ENCARGADO_INVENTARIO` y `CONSULTA`) con la misma contraseña, verificados con login directo contra Neon. Esta ronda se validó **sin pruebas en localhost**: `lint` sin errores, `test:permissions` 4/4, `test:fields` 6/6, `test:unit` 44/44 sin conexión a base (URL local ficticia solo para el guard de pruebas puras) y `build` correcto de 2109 módulos. El primer deploy de `aa40498` falló porque el build del backend exigía autorización para migrar en Neon; se corrigió para que el build omita las migraciones cuando no están autorizadas, sin cambiar `npm run dev` ni `npm run migrate`. El 2026-11-23 se sustituyó OpenRouter por OpenAI en el chat del asistente: se eliminó el consentimiento, se endureció el prompt profesional y se conservó el contexto agregado por establecimiento.
 
 ## Estructura
 

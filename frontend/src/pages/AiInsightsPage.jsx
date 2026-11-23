@@ -44,7 +44,7 @@ const QUICK_QUESTIONS = [
 
 const INITIAL_MESSAGE = {
   role: 'system',
-  text: 'El chat genera sus respuestas con OpenRouter (modelo gratuito) usando cifras reales de Neon. Autoriza el envío del resumen para comenzar.',
+  text: 'Hola. Soy el asistente de IA de STOCKALERT. Analizo las cifras reales de tu establecimiento para ayudarte a decidir. ¿Qué necesitas revisar?',
   at: new Date().toISOString(),
 };
 
@@ -59,20 +59,17 @@ export default function AiInsightsPage() {
 
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [question, setQuestion] = useState('');
-  const [pendingQuestion, setPendingQuestion] = useState('');
-  const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState('');
   const endRef = useRef(null);
 
   const externalAvailable = Boolean(aiStatus?.externalModelAvailable);
-  const showConsent = externalAvailable && !consent;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, sending]);
 
-  async function sendQuestion(text, consentOverride = null) {
+  async function sendQuestion(text) {
     const clean = String(text || '').trim();
     if (!clean || sending) return;
 
@@ -82,7 +79,6 @@ export default function AiInsightsPage() {
       .map((message) => ({ role: message.role, content: message.text }));
 
     setQuestion('');
-    setPendingQuestion('');
     setChatError('');
     setMessages((previous) => [...previous, { role: 'user', text: clean, at: new Date().toISOString() }]);
     setSending(true);
@@ -92,13 +88,12 @@ export default function AiInsightsPage() {
         question: clean,
         days,
         leadTimeDays,
-        consent: consentOverride ?? consent,
         history,
       });
       const response = result.data;
       const text = response.text || response.notice || '';
       setMessages((previous) => [...previous, {
-        role: response.outOfService || response.consentRequired ? 'system' : 'assistant',
+        role: response.outOfService ? 'system' : 'assistant',
         text,
         outOfService: Boolean(response.outOfService),
         model: response.model,
@@ -111,24 +106,9 @@ export default function AiInsightsPage() {
     }
   }
 
-  function requestQuestion(text) {
-    if (showConsent) {
-      setPendingQuestion(String(text || '').trim());
-      setQuestion(String(text || '').trim());
-      return;
-    }
-    sendQuestion(text);
-  }
-
-  function acceptConsent() {
-    setConsent(true);
-    if (pendingQuestion) sendQuestion(pendingQuestion, true);
-  }
-
   function newConversation() {
     setMessages([{ ...INITIAL_MESSAGE, at: new Date().toISOString() }]);
     setQuestion('');
-    setPendingQuestion('');
     setChatError('');
   }
 
@@ -146,7 +126,7 @@ export default function AiInsightsPage() {
     <>
       <PageHeader
         title="Copiloto de inventario"
-        description="Todas las respuestas del chat las genera OpenRouter con datos reales de tu inventario."
+        description="Un asistente IA profesional que responde con cifras reales de tu inventario y del sistema STOCKALERT."
         actions={(
           <div className="ai-header-actions">
             <div className="period-switch">
@@ -219,31 +199,15 @@ export default function AiInsightsPage() {
       <Card className="ai-chat">
         <CardHeader
           title="Chat con tu copiloto"
-          subtitle="Historial de esta sesión · OpenRouter gratuito con cifras de Neon"
+          subtitle="Historial de esta sesión · OpenAI con datos de tu establecimiento"
           action={(
             <Badge tone={externalAvailable ? 'info' : 'danger'}>
               {externalAvailable ? <Sparkles size={13} /> : <AlertTriangle size={13} />}
-              {externalAvailable ? 'OpenRouter gratuito' : 'IA temporalmente fuera de servicio'}
+              {externalAvailable ? 'Asistente IA activo' : 'IA temporalmente fuera de servicio'}
             </Badge>
           )}
         />
         <CardBody>
-          {showConsent && (
-            <div className="ai-consent">
-              <ShieldCheck size={18} />
-              <div>
-                <strong>Antes de usar OpenRouter</strong>
-                <p>
-                  Solo se enviará un resumen agregado (productos, existencias, cantidades sugeridas y precios).
-                  No se envían usuarios, correos ni credenciales. Sin esta autorización el chat no genera respuestas.
-                </p>
-              </div>
-              <div className="ai-consent__actions">
-                <button type="button" className="btn btn--sm btn--primary" onClick={acceptConsent}>Autorizar resumen</button>
-              </div>
-            </div>
-          )}
-
           <div className="ai-chat__messages">
             {messages.map((message, index) => {
               const isSystem = message.role === 'system';
@@ -258,7 +222,7 @@ export default function AiInsightsPage() {
                   <div className="ai-message__body">
                     <div className="ai-message__meta">
                       <strong>{isSystem ? 'Sistema' : (message.role === 'assistant' ? 'Copiloto' : 'Tú')}</strong>
-                      {message.role === 'assistant' && <span>OpenRouter · modelo gratuito</span>}
+                      {message.role === 'assistant' && <span>OpenAI{message.model ? ` · ${message.model}` : ''}</span>}
                       {isOutage && <span>Servicio no disponible</span>}
                       {message.at && <time>{formatDateTime(message.at)}</time>}
                     </div>
@@ -279,11 +243,11 @@ export default function AiInsightsPage() {
 
           <div className="ai-chat__quick">
             {QUICK_QUESTIONS.map((item) => (
-              <button key={item} type="button" onClick={() => requestQuestion(item)} disabled={sending}>{item}</button>
+              <button key={item} type="button" onClick={() => sendQuestion(item)} disabled={sending}>{item}</button>
             ))}
           </div>
 
-          <form className="ai-chat__composer" onSubmit={(event) => { event.preventDefault(); requestQuestion(question); }}>
+          <form className="ai-chat__composer" onSubmit={(event) => { event.preventDefault(); sendQuestion(question); }}>
             <textarea
               className="ai-chat__input"
               rows="2"
@@ -293,7 +257,7 @@ export default function AiInsightsPage() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();
-                  requestQuestion(question);
+                  sendQuestion(question);
                 }
               }}
             />
@@ -309,7 +273,7 @@ export default function AiInsightsPage() {
         <div className="ai-technical__body">
           <p>
             Estos cálculos no redactan las respuestas del chat: solo preparan el resumen agregado que se envía
-            a OpenRouter. El motor de STOCKALERT estima la salida diaria con el historial reciente, calcula
+            al asistente de IA. El motor de STOCKALERT estima la salida diaria con el historial reciente, calcula
             cuánto duraría cada producto y define una cantidad sugerida para cubrir {leadTimeDays} días de
             reposición. Las alertas de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
           </p>

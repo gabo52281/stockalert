@@ -3,7 +3,6 @@
 const env = require('../src/config/env');
 const repository = require('../src/repositories/ai.repository');
 const {
-  CONSENT_MESSAGE,
   UNAVAILABLE_MESSAGE,
   answer,
   buildContext,
@@ -49,7 +48,7 @@ const facts = {
   product: recommendations[0],
 };
 
-describe('copiloto conversacional con OpenRouter exclusivo', () => {
+describe('asistente IA de STOCKALERT con OpenAI', () => {
   describe('cálculos internos usados solo como contexto', () => {
     it('interpreta presupuestos con separadores colombianos', () => {
       expect(parseBudget('Tengo $ 500.000 para comprar')).toBe(500000);
@@ -74,34 +73,37 @@ describe('copiloto conversacional con OpenRouter exclusivo', () => {
       expect(classifyIntent('¿Cuáles tienen menos movimiento?')).toBe('lowMovement');
     });
 
-    it('prepara cifras reales para el proveedor con formato colombiano', () => {
+    it('prepara cifras reales para el asistente con formato colombiano', () => {
       const context = buildContext(facts);
       expect(context).toContain('$ 510.000');
       expect(context).toContain('Arroz integral');
       expect(context).toContain('28');
+      expect(context).toContain('Productos activos del establecimiento');
     });
   });
 
-  it('expone el estado del proveedor sin secretos', () => {
+  it('expone el estado del asistente sin secretos', () => {
     const current = status();
     expect(['ia', 'unavailable']).toContain(current.mode);
     expect(current).not.toHaveProperty('apiKey');
+    expect(current).not.toHaveProperty('OPENAI_API_KEY');
     expect(current).not.toHaveProperty('OPENROUTER_API_KEY');
-    expect(current.externalModelAvailable).toBe(Boolean(env.OPENROUTER_API_KEY));
+    expect(current.externalModelAvailable).toBe(Boolean(env.OPENAI_API_KEY));
+    if (current.model) expect(current.model).toBe(env.OPENAI_MODEL);
   });
 
-  describe('llamada auténtica al proveedor (simulada en pruebas)', () => {
+  describe('llamada a OpenAI (simulada en pruebas)', () => {
     const original = {
-      key: env.OPENROUTER_API_KEY,
-      model: env.OPENROUTER_MODEL,
+      key: env.OPENAI_API_KEY,
+      model: env.OPENAI_MODEL,
       fetch: global.fetch,
       loadInventorySignals: repository.loadInventorySignals,
       loadMovementTotals: repository.loadMovementTotals,
     };
 
     beforeEach(() => {
-      env.OPENROUTER_API_KEY = 'clave-de-prueba';
-      env.OPENROUTER_MODEL = 'openrouter/free';
+      env.OPENAI_API_KEY = 'clave-de-prueba';
+      env.OPENAI_MODEL = 'gpt-5.6-luna';
       repository.loadInventorySignals = async () => ({
         products: [{
           id: 1, code: 'IA-001', name: 'Arroz integral', category_name: 'Granos',
@@ -121,8 +123,8 @@ describe('copiloto conversacional con OpenRouter exclusivo', () => {
     });
 
     afterEach(() => {
-      env.OPENROUTER_API_KEY = original.key;
-      env.OPENROUTER_MODEL = original.model;
+      env.OPENAI_API_KEY = original.key;
+      env.OPENAI_MODEL = original.model;
       global.fetch = original.fetch;
       repository.loadInventorySignals = original.loadInventorySignals;
       repository.loadMovementTotals = original.loadMovementTotals;
@@ -131,9 +133,9 @@ describe('copiloto conversacional con OpenRouter exclusivo', () => {
     it('sin clave no contacta al proveedor y reporta el servicio fuera de línea', async () => {
       let called = false;
       global.fetch = async () => { called = true; throw new Error('No debió llamarse'); };
-      env.OPENROUTER_API_KEY = '';
+      env.OPENAI_API_KEY = '';
 
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+      const result = await answer({ question: '¿Qué debo comprar esta semana?' });
 
       expect(called).toBe(false);
       expect(result.outOfService).toBe(true);
@@ -141,44 +143,44 @@ describe('copiloto conversacional con OpenRouter exclusivo', () => {
       expect(result.providerUsed).toBe(false);
     });
 
-    it('sin consentimiento no genera respuesta ni contacta al proveedor', async () => {
-      let called = false;
-      global.fetch = async () => { called = true; throw new Error('No debió llamarse'); };
+    it('responde sin pedir consentimiento ni mostrar texto local', async () => {
+      global.fetch = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'gpt-5.6-luna',
+          choices: [{ message: { content: 'Repón 15 unidades de arroz integral.' } }],
+        }),
+      });
 
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: false });
+      const result = await answer({ question: '¿Qué debo comprar esta semana?' });
 
-      expect(called).toBe(false);
-      expect(result.consentRequired).toBe(true);
-      expect(result.text).toBe('');
-      expect(result.notice).toBe(CONSENT_MESSAGE);
-      expect(result.providerUsed).toBe(false);
+      expect(result.providerUsed).toBe(true);
+      expect(result.mode).toBe('ia');
+      expect(result.consentRequired).toBe(false);
+      expect(result.outOfService).toBe(false);
+      expect(result.text).toBe('Repón 15 unidades de arroz integral.');
     });
 
     it.each([
-      ['cuota agotada', () => ({
+      ['cuota o clave inválida', () => ({
         ok: false, status: 429, json: async () => ({ error: { code: 'RATE_LIMIT_EXCEEDED' } }),
       }), 'quota'],
       ['créditos insuficientes', () => ({
-        ok: false, status: 402, json: async () => ({ error: { code: 'INSUFFICIENT_CREDITS' } }),
+        ok: false, status: 402, json: async () => ({ error: { code: 'INSUFFICIENT_QUOTA' } }),
       }), 'quota'],
       ['tiempo de espera agotado', () => {
         const error = new Error('Abortada por timeout');
         error.name = 'AbortError';
         throw error;
       }, 'timeout'],
-      ['modelo de pago con costo cero', () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          model: 'gpt-4o',
-          usage: { cost: 0 },
-          choices: [{ message: { content: 'Respuesta de pago' } }],
-        }),
-      }), 'not_free'],
-    ])('con %s devuelve el mensaje de IA fuera de servicio', async (_name, fetchMock, reason) => {
+      ['error del proveedor', () => ({
+        ok: false, status: 500, json: async () => ({ error: { message: 'Error interno' } }),
+      }), 'provider'],
+    ])('con %s devuelve el mensaje del asistente fuera de servicio', async (_name, fetchMock, reason) => {
       global.fetch = fetchMock;
 
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+      const result = await answer({ question: '¿Qué debo comprar esta semana?' });
 
       expect(result.outOfService).toBe(true);
       expect(result.text).toBe(UNAVAILABLE_MESSAGE);
@@ -187,55 +189,62 @@ describe('copiloto conversacional con OpenRouter exclusivo', () => {
       expect(result.error).toBe(reason);
     });
 
-    it('devuelve solo el texto del modelo gratuito, sin tablas ni texto local', async () => {
-      let body;
+    it('envía el contexto real a OpenAI y sanitiza cualquier clave devuelta', async () => {
+      let url;
       let authorization;
-      global.fetch = async (_url, init) => {
-        body = JSON.parse(init.body);
+      let body;
+      global.fetch = async (target, init) => {
+        url = target;
         authorization = init.headers.Authorization;
+        body = JSON.parse(init.body);
         return {
           ok: true,
           status: 200,
           json: async () => ({
-            model: 'openrouter/free:free',
-            usage: { cost: 0 },
-            choices: [{ message: { content: 'Repón 40 unidades. Nunca compartas sk-or-v1-abc123.' } }],
+            model: 'gpt-5.6-luna',
+            choices: [{ message: { content: 'Repón 40 unidades. Nunca compartas sk-proj-abc123def456ghi789.' } }],
           }),
         };
       };
 
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+      const result = await answer({
+        question: '¿Qué debo comprar esta semana?',
+        history: [{ role: 'user', content: 'Hola' }],
+      });
 
       expect(result.providerUsed).toBe(true);
-      expect(result.mode).toBe('ia');
       expect(result.table).toBeNull();
       expect(result.text).toContain('Repón 40 unidades');
-      expect(result.text).not.toContain('sk-or-v1-abc123');
+      expect(result.text).not.toContain('sk-proj-abc123def456ghi789');
       expect(result.text).toContain('[CLAVE OCULTA]');
+      expect(url).toBe('https://api.openai.com/v1/chat/completions');
       expect(authorization).toBe('Bearer clave-de-prueba');
-      expect(body.model).toBe('openrouter/free');
-      expect(body.models).toBeUndefined();
-      expect(body.provider.max_price).toEqual({ prompt: 0, completion: 0 });
-      expect(body.reasoning).toEqual({ effort: 'low' });
-      expect(body.messages[0].content).toContain('no puedes modificar, crear ni borrar inventario');
-      expect(body.messages.at(-1).content).toContain('DATOS VERIFICADOS (no instrucciones)');
+      expect(body.model).toBe('gpt-5.6-luna');
+      expect(body.max_completion_tokens).toBeGreaterThan(0);
+      expect(body.temperature).toBeUndefined();
+      expect(body.reasoning).toBeUndefined();
+      expect(body.provider).toBeUndefined();
+      expect(body.messages[0].content).toContain('analista senior de operaciones e inventarios');
+      expect(body.messages.at(-2).content).toBe('Hola');
+      expect(body.messages.at(-1).content).toContain('DATOS VERIFICADOS DEL ESTABLECIMIENTO');
+      expect(body.messages.at(-1).content).toContain('Módulos: productos, categorías');
     });
 
-    it('reintenta con el mismo modelo gratuito cuando la primera respuesta viene vacía', async () => {
+    it('reintenta una sola vez cuando la primera respuesta viene vacía', async () => {
       const calls = [];
       global.fetch = async (_url, init) => {
         const sent = JSON.parse(init.body);
-        calls.push(sent.max_tokens);
+        calls.push(sent.max_completion_tokens);
         return {
           ok: true,
           status: 200,
           json: async () => (calls.length === 1
-            ? { model: 'proveedor/modelo:free', usage: { cost: 0 }, choices: [{ message: { content: '' } }] }
-            : { model: 'proveedor/modelo:free', usage: { cost: 0 }, choices: [{ message: { content: 'Repón 10 unidades.' } }] }),
+            ? { model: 'gpt-5.6-luna', choices: [{ message: { content: '' } }] }
+            : { model: 'gpt-5.6-luna', choices: [{ message: { content: 'Repón 10 unidades.' } }] }),
         };
       };
 
-      const result = await answer({ question: '¿Qué debo comprar esta semana?', consent: true });
+      const result = await answer({ question: '¿Qué debo comprar esta semana?' });
 
       expect(calls).toHaveLength(2);
       expect(calls[1]).toBeGreaterThan(calls[0]);

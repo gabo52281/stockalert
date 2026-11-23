@@ -2,7 +2,7 @@
   "name": "stockalert",
   "version": "1.0.0",
   "private": true,
-  "description": "Plataforma multiempresa de gestión de inventarios con alertas preventivas y copiloto IA vía OpenRouter gratuito",
+  "description": "Plataforma multiempresa de gestión de inventarios con alertas preventivas y asistente IA vía OpenAI",
   "workspaces": [
     "backend",
     "frontend"
