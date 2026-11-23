@@ -1,60 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle, Bot, BrainCircuit, PackagePlus, RefreshCw,
-  Send, ShieldCheck, Sparkles, TrendingUp, Wallet,
+  AlertTriangle, Bot, MessageCircle, RefreshCw, Send, Sparkles,
 } from 'lucide-react';
 import { aiApi } from '../api/endpoints.js';
 import { errorMessage } from '../api/client.js';
 import { useApi } from '../hooks/useApi.js';
-import { formatCurrency, formatDateTime, formatInteger, formatNumber } from '../utils/format.js';
+import { formatDateTime } from '../utils/format.js';
 import PageHeader from '../components/ui/PageHeader.jsx';
 import { Card, CardBody, CardHeader } from '../components/ui/Card.jsx';
-import Table from '../components/ui/Table.jsx';
 import Badge from '../components/ui/Badge.jsx';
-
-const RISK_TONE = {
-  CRITICO: 'danger',
-  ALTO: 'danger',
-  MEDIO: 'info',
-  BAJO: 'neutral',
-};
-
-const RISK_LABEL = {
-  CRITICO: 'Urgente',
-  ALTO: 'Pronto',
-  MEDIO: 'Revisar',
-  BAJO: 'Estable',
-};
-
-const CONFIDENCE_LABEL = {
-  alta: 'Alta',
-  media: 'Media',
-  baja: 'Baja',
-  sin_historial: 'Sin historial',
-};
 
 const QUICK_QUESTIONS = [
   '¿Qué debo comprar esta semana?',
   '¿Qué productos se van a agotar?',
   '¿Cuánto necesito invertir?',
   'Tengo $ 500.000 para comprar mercancía. ¿Qué me recomiendas?',
-  '¿Cuáles son los productos con menos movimiento?',
+  '¿Cuáles tienen menos movimiento?',
   '¿Cómo puedo mejorar mi inventario?',
 ];
 
 const INITIAL_MESSAGE = {
   role: 'system',
-  text: 'Hola. Soy el asistente de IA de STOCKALERT. Analizo las cifras reales de tu establecimiento para ayudarte a decidir. ¿Qué necesitas revisar?',
+  text: '¡Hola! Soy tu asistente de inventario. Puedo ayudarte a decidir qué reponer, detectar productos en riesgo y explicarte las cifras de tu establecimiento. ¿Qué necesitas revisar?',
   at: new Date().toISOString(),
 };
 
 export default function AiInsightsPage() {
-  const [days, setDays] = useState(30);
-  const [leadTimeDays, setLeadTimeDays] = useState(14);
-  const { data, loading, error, reload } = useApi(
-    () => aiApi.insights({ days, leadTimeDays }).then((response) => response.data),
-    [days, leadTimeDays],
-  );
   const { data: aiStatus } = useApi(() => aiApi.status().then((response) => response.data), []);
 
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
@@ -84,19 +55,12 @@ export default function AiInsightsPage() {
     setSending(true);
 
     try {
-      const result = await aiApi.chat({
-        question: clean,
-        days,
-        leadTimeDays,
-        history,
-      });
+      const result = await aiApi.chat({ question: clean, history });
       const response = result.data;
-      const text = response.text || response.notice || '';
       setMessages((previous) => [...previous, {
         role: response.outOfService ? 'system' : 'assistant',
-        text,
+        text: response.text || response.notice || '',
         outOfService: Boolean(response.outOfService),
-        model: response.model,
         at: new Date().toISOString(),
       }]);
     } catch (err) {
@@ -112,94 +76,22 @@ export default function AiInsightsPage() {
     setChatError('');
   }
 
-  const technicalColumns = [
-    { key: 'name', label: 'Producto', render: (row) => <><strong>{row.name}</strong><small className="cell-sub">{row.code}</small></> },
-    { key: 'stock', label: 'Stock', align: 'right', render: (row) => formatInteger(row.stock) },
-    { key: 'forecastDailyDemand', label: 'Salida diaria', align: 'right', render: (row) => formatNumber(row.forecastDailyDemand) },
-    { key: 'daysOfCover', label: 'Días que duraría', align: 'right', render: (row) => (row.daysOfCover === null ? '—' : formatNumber(row.daysOfCover)) },
-    { key: 'suggestedQty', label: 'Reponer', align: 'right', render: (row) => formatInteger(row.suggestedQty) },
-    { key: 'reorderPoint', label: 'Punto de pedido', align: 'right', render: (row) => formatInteger(row.reorderPoint) },
-    { key: 'risk', label: 'Nivel', render: (row) => <Badge tone={RISK_TONE[row.risk] || 'neutral'}>{RISK_LABEL[row.risk] || row.risk}</Badge> },
-  ];
-
   return (
-    <>
+    <div className="ai-page">
       <PageHeader
-        title="Copiloto de inventario"
-        description="Un asistente IA profesional que responde con cifras reales de tu inventario y del sistema STOCKALERT."
+        title="Asistente IA"
+        description="Habla con el asistente de STOCKALERT. Sus respuestas se basan en las cifras reales y aisladas de tu establecimiento."
         actions={(
-          <div className="ai-header-actions">
-            <div className="period-switch">
-              {[7, 30, 90].map((option) => (
-                <button key={option} type="button" className={days === option ? 'active' : ''} onClick={() => setDays(option)}>{option} días</button>
-              ))}
-            </div>
-            <button type="button" className="btn btn--sm btn--ghost" onClick={newConversation}>
-              <RefreshCw size={14} /> Nueva conversación
-            </button>
-          </div>
+          <button type="button" className="btn btn--sm btn--ghost" onClick={newConversation}>
+            <RefreshCw size={14} /> Nueva conversación
+          </button>
         )}
       />
 
-      {error && (
-        <Card className="stat-card stat-card--orange">
-          <CardBody>No se pudo cargar el análisis automático. Intenta recargar la página.</CardBody>
-        </Card>
-      )}
-
-      <div className="ai-summary-grid">
-        <Card className="summary-card summary-card--blue">
-          <PackagePlus size={21} />
-          <div><span>Productos que necesitan atención</span><strong>{formatInteger(data?.summary?.replenishmentProducts || 0)}</strong></div>
-        </Card>
-        <Card className="summary-card summary-card--critical">
-          <AlertTriangle size={21} />
-          <div><span>Productos con riesgo de agotarse</span><strong>{formatInteger(data?.summary?.highRiskProducts || 0)}</strong></div>
-        </Card>
-        <Card className="summary-card summary-card--green">
-          <Wallet size={21} />
-          <div><span>Inversión estimada para reposición</span><strong>{formatCurrency(data?.summary?.estimatedPurchaseCost || 0)}</strong></div>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader
-          title="Recomendaciones importantes"
-          subtitle="Ordenadas por urgencia, existencias y salidas recientes"
-          action={<button type="button" className="btn btn--sm btn--ghost" onClick={reload}>Actualizar</button>}
-        />
-        <CardBody>
-          {data?.recommendations?.length ? (
-            <div className="ai-recommendation-list">
-              {data.recommendations.slice(0, 4).map((item) => (
-                <div key={item.id} className="ai-recommendation">
-                  <span className="ai-recommendation__icon"><TrendingUp size={17} /></span>
-                  <div className="ai-recommendation__body">
-                    <div className="ai-recommendation__title">
-                      <strong>{item.name}</strong>
-                      <Badge tone={RISK_TONE[item.risk] || 'neutral'}>{RISK_LABEL[item.risk] || item.risk}</Badge>
-                    </div>
-                    <small>{item.code} · {item.category}</small>
-                    <p>{item.simpleReason || item.reason}</p>
-                  </div>
-                  <div className="ai-recommendation__action">
-                    <span>Reponer</span>
-                    <strong>{formatInteger(item.suggestedQty)} uds.</strong>
-                    <small>{formatCurrency(item.suggestedQty * item.purchasePrice)}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="card__subtitle">{loading ? 'Analizando movimientos…' : 'No hay recomendaciones urgentes en este momento.'}</p>
-          )}
-        </CardBody>
-      </Card>
-
       <Card className="ai-chat">
         <CardHeader
-          title="Chat con tu copiloto"
-          subtitle="Historial de esta sesión · OpenAI con datos de tu establecimiento"
+          title="Chat de inventario"
+          subtitle="Sincronizado con tus productos, existencias y movimientos"
           action={(
             <Badge tone={externalAvailable ? 'info' : 'danger'}>
               {externalAvailable ? <Sparkles size={13} /> : <AlertTriangle size={13} />}
@@ -216,18 +108,16 @@ export default function AiInsightsPage() {
                 <div key={`${message.role}-${index}`} className={`ai-message ai-message--${isSystem ? 'system' : message.role}`}>
                   <span className="ai-message__avatar">
                     {isSystem
-                      ? (isOutage ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />)
-                      : (message.role === 'assistant' ? <Bot size={16} /> : 'Tú')}
+                      ? (isOutage ? <AlertTriangle size={16} /> : <MessageCircle size={16} />)
+                      : message.role === 'assistant' ? <Bot size={16} /> : 'Tú'}
                   </span>
                   <div className="ai-message__body">
                     <div className="ai-message__meta">
-                      <strong>{isSystem ? 'Sistema' : (message.role === 'assistant' ? 'Copiloto' : 'Tú')}</strong>
-                      {message.role === 'assistant' && <span>OpenAI{message.model ? ` · ${message.model}` : ''}</span>}
-                      {isOutage && <span>Servicio no disponible</span>}
+                      <strong>{isSystem ? 'Asistente' : (message.role === 'assistant' ? 'Asistente IA' : 'Tú')}</strong>
                       {message.at && <time>{formatDateTime(message.at)}</time>}
                     </div>
                     <div className="ai-message__bubble">
-                      {String(message.text || '').split('\n').map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}
+                      {String(message.text || '').split('\n').filter(Boolean).map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}
                     </div>
                   </div>
                 </div>
@@ -267,42 +157,6 @@ export default function AiInsightsPage() {
           </form>
         </CardBody>
       </Card>
-
-      <details className="ai-technical">
-        <summary><BrainCircuit size={16} /> Cómo funciona el cálculo automático</summary>
-        <div className="ai-technical__body">
-          <p>
-            Estos cálculos no redactan las respuestas del chat: solo preparan el resumen agregado que se envía
-            al asistente de IA. El motor de STOCKALERT estima la salida diaria con el historial reciente, calcula
-            cuánto duraría cada producto y define una cantidad sugerida para cubrir {leadTimeDays} días de
-            reposición. Las alertas de stock mínimo siguen siendo la fuente oficial del estado de cada producto.
-          </p>
-          <div className="formula-banner">
-            <BrainCircuit size={18} />
-            <span>
-              Ventana de análisis: {days} días · Tiempo estimado de reposición: {leadTimeDays} días.
-              Confianza: alta = 7 o más días con salidas, media = 3 a 6, baja = 1 o 2.
-            </span>
-            <select
-              className="select"
-              value={leadTimeDays}
-              onChange={(event) => setLeadTimeDays(Number(event.target.value))}
-              aria-label="Tiempo estimado de reposición"
-            >
-              {[7, 14, 21, 30].map((option) => <option key={option} value={option}>{option} días</option>)}
-            </select>
-          </div>
-          <Table
-            columns={technicalColumns}
-            rows={data?.recommendations}
-            loading={loading}
-            emptyMessage="No hay productos con reposición sugerida"
-          />
-          <p className="disclaimer">
-            {data?.narrative} Confianza: {CONFIDENCE_LABEL[data?.recommendations?.[0]?.forecastConfidence] || '—'}.
-          </p>
-        </div>
-      </details>
-    </>
+    </div>
   );
 }

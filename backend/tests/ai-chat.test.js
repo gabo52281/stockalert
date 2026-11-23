@@ -225,9 +225,36 @@ describe('asistente IA de STOCKALERT con OpenAI', () => {
       expect(body.reasoning).toBeUndefined();
       expect(body.provider).toBeUndefined();
       expect(body.messages[0].content).toContain('analista senior de operaciones e inventarios');
+      expect(body.messages[0].content).toContain('Nunca uses Markdown');
+      expect(body.messages[0].content).toContain('prohibido inventar, estimar');
       expect(body.messages.at(-2).content).toBe('Hola');
       expect(body.messages.at(-1).content).toContain('DATOS VERIFICADOS DEL ESTABLECIMIENTO');
       expect(body.messages.at(-1).content).toContain('Módulos: productos, categorías');
+    });
+
+    it('elimina Markdown y negritas aunque el modelo los devuelva', async () => {
+      global.fetch = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'gpt-5.6-luna',
+          choices: [{
+            message: {
+              content: '### Conclusión breve\nRepón **Jabón de tocador**.\n- Revisa el stock\nVer [alertas](https://ejemplo.com).',
+            },
+          }],
+        }),
+      });
+
+      const result = await answer({ question: '¿Qué debo comprar esta semana?' });
+
+      expect(result.text).not.toContain('###');
+      expect(result.text).not.toContain('**');
+      expect(result.text).not.toContain('- Revisa');
+      expect(result.text).not.toContain('[alertas]');
+      expect(result.text).toContain('Conclusión breve');
+      expect(result.text).toContain('Repón Jabón de tocador');
+      expect(result.text).toContain('Ver alertas');
     });
 
     it('reintenta una sola vez cuando la primera respuesta viene vacía', async () => {

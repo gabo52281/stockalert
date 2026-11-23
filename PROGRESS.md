@@ -143,6 +143,8 @@ STOCKALERT funciona con **una sola base de datos Neon**, **un único `.env` en l
 - Eliminado el flujo de consentimiento: `consentRequired` ya no se exige, se quitó el bloque de autorización del frontend y el campo `consent` del esquema. La respuesta siempre la genera OpenAI; no hay texto local de respaldo.
 - `OPENAI_API_KEY` y `OPENAI_MODEL` creados en `.env` (ignorado por Git) y en `.env.example`; retiradas las variables y la clave de OpenRouter. La clave real debe pegarse en `.env` y configurarse solo en el backend de Vercel.
 - Actualizadas las pruebas unitarias del chat, la prueba de API, el E2E opcional y toda la documentación para reflejar OpenAI y el nuevo flujo sin consentimiento.
+- El módulo Asistente IA se simplificó a **solo chat**: se eliminaron las tarjetas de resumen, la tabla técnica y el desplegable de cálculo. El chat tiene burbujas redondeadas, avatares, preguntas rápidas y alto fijo con scroll.
+- Corregidas las respuestas "feas": el prompt prohíbe Markdown, encabezados, negritas y listas; exige prosa natural en 2–4 frases, sin inventar ni combinar cifras. El backend elimina cualquier Markdown que el modelo devuelva y el frontend lo muestra como texto plano.
 
 ## Resultados reales finales
 

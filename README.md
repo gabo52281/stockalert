@@ -10,7 +10,7 @@ Sistema web multiempresa de gestión y control de inventarios con alertas preven
 - **API relativa:** el frontend siempre llama a `/api`. Vite hace de proxy en desarrollo y Vercel enruta al mismo dominio en producción.
 - **Despliegue:** un repositorio y un proyecto de Vercel Services con dos servicios: `backend` (Express) y `frontend` (Vite). No hay dominios ni despliegues separados.
 - **Arquitectura multiempresa:** `SUPERADMINISTRADOR` global + establecimientos aislados + usuarios por establecimiento + panel `/superadmin`. El superadministrador no tiene acceso a inventario ni a IA.
-- **IA:** el módulo Asistente IA calcula indicadores en backend y su chat usa **OpenAI** (`OPENAI_MODEL`, por defecto `gpt-5.6-luna`) con un prompt profesional y un resumen agregado del establecimiento autenticado. No hay consentimiento ni respuestas locales de respaldo: sin clave, el chat muestra el aviso de servicio no disponible.
+- **IA:** el módulo Asistente IA es únicamente un chat con **OpenAI** (`OPENAI_MODEL`, por defecto `gpt-5.6-luna`). El backend calcula indicadores y envía un resumen agregado del establecimiento autenticado; el prompt exige prosa natural sin Markdown y prohíbe inventar cifras. No hay consentimiento ni respuestas locales de respaldo: sin clave, el chat muestra el aviso de servicio no disponible.
 
 ## Multiempresa (resumen)
 

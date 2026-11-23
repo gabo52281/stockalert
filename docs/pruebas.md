@@ -31,7 +31,7 @@ Tests       98 passed (98)
 Duration    6.28s
 ```
 
-Ronda del 2026-11-23, **sin pruebas en localhost**: `npm run lint` terminó con 0 errores; `npm run test:permissions` 4/4; `npm run test:fields` 6/6; `npm run test:unit` 4 archivos / 44 pruebas puras con una URL local ficticia solo para el guard (sin servidor ni conexión); y `npm run build` compiló 2109 módulos. Las integraciones con fixture local quedan documentadas arriba como historial, pero no se repitieron en esta ronda. Tras sustituir OpenRouter por OpenAI se repitieron `lint`, `test:unit` (44/44, incluidas 13 pruebas del chat), `test:permissions`, `test:fields` y `build`, todos con el mismo resultado. No se hizo login en Vercel ni se probó en localhost.
+Ronda del 2026-11-23, **sin pruebas en localhost**: `npm run lint` terminó con 0 errores; `npm run test:permissions` 4/4; `npm run test:fields` 6/6; `npm run test:unit` 4 archivos / 44 pruebas puras con una URL local ficticia solo para el guard (sin servidor ni conexión); y `npm run build` compiló 2109 módulos. Las integraciones con fixture local quedan documentadas arriba como historial, pero no se repitieron en esta ronda. Tras sustituir OpenRouter por OpenAI se repitieron `lint`, `test:unit` (45/45, incluidas 14 pruebas del chat), `test:permissions`, `test:fields` y `build`, todos con el mismo resultado. No se hizo login en Vercel ni se probó en localhost.
 
 Cobertura:
 
@@ -40,7 +40,7 @@ Cobertura:
 | `tests/tenant-security.test.js` (28) | login con permisos inmediatos; A/B sin fuga en productos, categorías, proveedores, movimientos, dashboard, alertas, indicadores, reportes, IA y configuración; IDs cross-tenant devuelven 404; `tenant_id` del frontend ignorado; validación de relaciones; concurrencia de inventario; superadmin sin inventario ni IA; reset y desactivación; sin exponer hashes |
 | `tests/api.test.js` (15) | `/health`; login inválido 401; ruta privada sin token 401; permiso de rol 403; validación Zod 400; creación de producto stock 0; entrada con stock anterior/resultante; salida con stock resultante; exceso de salida 409; historial conservado; resumen de alertas; dashboard e indicadores; **`/api/ia/insights` con datos reales**; **`/api/ia/status` sin secretos y `/api/ia/chat` sin texto local**; JSON/CSV/PDF con resumen y BOM; logout con token revocado |
 | `tests/ai.test.js` (7) | normalización de serie; sin historial; demanda constante y tendencia; detección de pico atípico; sugerencia de reposición y riesgo; sin reposición cuando hay cobertura; resumen priorizado |
-| `tests/ai-chat.test.js` (13) | presupuestos colombianos y plan entero; intenciones; contexto con cifras reales; estado sin secretos; sin clave sin respuesta local; respuesta sin consentimiento; 401/402/429/timeout/error; petición a OpenAI con prompt profesional y claves sanitizadas; reintento si la respuesta sale vacía |
+| `tests/ai-chat.test.js` (14) | presupuestos colombianos y plan entero; intenciones; contexto con cifras reales; estado sin secretos; sin clave sin respuesta local; respuesta sin consentimiento; 401/402/429/timeout/error; petición a OpenAI con prompt sin Markdown y claves sanitizadas; eliminación de Markdown devuelto por el modelo; reintento si la respuesta sale vacía |
 | `tests/alerts.test.js` (6) | `AGOTADO`, `CRITICO`, `BAJO`, `NORMAL`, mínimo 0 y porcentaje por producto |
 | `tests/metrics.test.js` (4) | promedio/cobertura, `INSUFICIENTE`, `NO_CALCULABLE`, valoración |
 | `tests/validation.test.js` (21) | enteros y cadenas de dígitos aceptados; rechazo de decimales, negativos, notación científica, comas y vacío en precios, stock, porcentajes y días; cantidades > 0; formato COP de reportes sin decimales; `formatFilterValue` convierte fechas ISO a `dd/mm/aaaa` |
@@ -123,7 +123,7 @@ Salida real de la pasada final:
 4. Productos: 10 filas visibles
 5. Módulo de alertas cargado con filas reales
 6. Módulo de indicadores cargado con cobertura real
-7. Copiloto con recomendaciones reales cargado
+7. Chat del asistente cargado
 8. Estado del chat: asistente IA activo
 9. Respuesta mostrada solo desde OpenAI o aviso de servicio no disponible
 10. Segunda pregunta conserva el historial
@@ -222,7 +222,7 @@ valuation            OK  páginas=2  filas=29
 - `POST /api/ia/chat`: sin clave, o ante 401/402/403/429/timeout/error de proveedor, devuelve el aviso oficial `El asistente de IA está temporalmente fuera de servicio. Intenta nuevamente en unos instantes. Puedes consultar las recomendaciones automáticas de STOCKALERT.` No se sustituye por texto simulado.
 - No se requiere `consent`: la respuesta siempre la genera OpenAI. El campo `consent` quedó fuera del esquema y el bloque de autorización desapareció del frontend.
 - La petición, simulada con `global.fetch` en `tests/ai-chat.test.js`, usa la URL `https://api.openai.com/v1/chat/completions`, `model: "gpt-5.6-luna"`, `max_completion_tokens` (900, hasta 1800 en un único reintento si la respuesta sale vacía), timeout de 20 s y contexto máximo de 5000 caracteres. No se envían `temperature`, `reasoning` ni `provider`. La cabecera `Authorization` se construye desde `env.OPENAI_API_KEY`.
-- El prompt posiciona al modelo como analista senior de operaciones e inventarios: conclusión breve, cifras clave y acción recomendada, máximo 220 palabras, siempre en español colombiano y apoyado solo en los bloques DATOS y SISTEMA.
+- El prompt posiciona al modelo como analista senior de operaciones e inventarios: prosa natural en 2–4 frases, sin Markdown, encabezados, negritas ni listas; sin inventar, estimar, sumar ni combinar cifras; siempre en español colombiano y apoyado solo en los bloques DATOS y SISTEMA. Cualquier formato que el modelo ignore se elimina en backend antes de mostrarse.
 - Cualquier clave que aparezca en el texto devuelto se sustituye por `[CLAVE OCULTA]`.
 - El chat no expone SQL, no tiene herramientas de escritura y el prompt prohíbe modificar, crear o borrar inventario.
 - Búsqueda en `frontend/`: 0 coincidencias de `sk-`, `OPENAI_API_KEY` ni variables `VITE_` con secretos. La clave se configura solo en `.env` local y en el backend de Vercel; no se compartió en esta conversación.

@@ -69,11 +69,10 @@ try {
     { timeout: 10000 },
   );
   await page.getByRole('link', { name: 'Asistente IA' }).click();
-  await page.getByText('Copiloto de inventario').first().waitFor({ timeout: 10000 });
-  await page.getByText('Recomendaciones importantes').waitFor({ timeout: 15000 });
-  await page.getByText('Chat con tu copiloto').waitFor({ timeout: 10000 });
+  await page.getByText('Asistente IA').first().waitFor({ timeout: 10000 });
+  await page.getByText('Chat de inventario').waitFor({ timeout: 10000 });
   await statusResponse;
-  console.log('7. Copiloto con recomendaciones reales cargado');
+  console.log('7. Chat del asistente cargado');
 
   const aiAvailable = await page.getByText('Asistente IA activo', { exact: true }).count() > 0;
   console.log('8. Estado del chat:', aiAvailable ? 'Asistente IA activo' : 'IA temporalmente fuera de servicio');
