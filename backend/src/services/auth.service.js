@@ -16,6 +16,7 @@ function publicUser(user) {
     roleLabel: ROLE_LABELS[user.role] || user.role,
     active: user.active,
     establishmentId: user.establishment_id ?? null,
+    establishmentName: user.establishment_name ?? null,
     mustChangePassword: Boolean(user.must_change_password),
   };
 }

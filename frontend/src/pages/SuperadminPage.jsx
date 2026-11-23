@@ -135,36 +135,42 @@ export default function SuperadminPage() {
       key: 'role', label: 'Rol',
       render: (row) => <Badge tone={row.role === 'ADMINISTRADOR' ? 'info' : 'neutral'}>{row.roleLabel || row.role}</Badge>,
     },
-    { key: 'establishment_name', label: 'Establecimiento', render: (row) => row.establishment_name || '—' },
+    {
+      key: 'establishmentName', label: 'Establecimiento',
+      render: (row) => row.establishmentName
+        || <span className="cell-sub">{row.role === 'SUPERADMINISTRADOR' ? 'Sin establecimiento' : 'Sin asignar'}</span>,
+    },
     {
       key: 'active', label: 'Estado',
       render: (row) => <Badge tone={row.active ? 'info' : 'danger'}>{row.active ? 'Activo' : 'Inactivo'}</Badge>,
     },
     {
       key: 'actions', label: 'Acciones', align: 'right',
-      render: (row) => (
-        <div className="row-actions">
-          <Button size="sm" variant="ghost" onClick={() => openUser(row)}>Editar</Button>
-          <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => openPassword(row)}>Contraseña</Button>
-          <Button
-            size="sm"
-            variant={row.active ? 'warning' : 'secondary'}
-            onClick={() => setConfirm({
-              title: row.active ? '¿Desactivar usuario?' : '¿Activar usuario?',
-              message: `${row.name} ${row.active ? 'no podrá iniciar sesión' : 'podrá iniciar sesión nuevamente'}.`,
-              confirmLabel: row.active ? 'Desactivar' : 'Activar',
-              danger: row.active,
-              action: () => mutate(
-                () => superadminApi.setUserActive(row.id, !row.active),
-                'Estado del usuario actualizado',
-                [users.reload, stats.reload],
-              ),
-            })}
-          >
-            {row.active ? 'Desactivar' : 'Activar'}
-          </Button>
-        </div>
-      ),
+      render: (row) => (row.role === 'SUPERADMINISTRADOR'
+        ? <span className="cell-sub">No editable</span>
+        : (
+          <div className="row-actions">
+            <Button size="sm" variant="ghost" onClick={() => openUser(row)}>Editar</Button>
+            <Button size="sm" variant="ghost" icon={KeyRound} onClick={() => openPassword(row)}>Contraseña</Button>
+            <Button
+              size="sm"
+              variant={row.active ? 'warning' : 'secondary'}
+              onClick={() => setConfirm({
+                title: row.active ? '¿Desactivar usuario?' : '¿Activar usuario?',
+                message: `${row.name} ${row.active ? 'no podrá iniciar sesión' : 'podrá iniciar sesión nuevamente'}.`,
+                confirmLabel: row.active ? 'Desactivar' : 'Activar',
+                danger: row.active,
+                action: () => mutate(
+                  () => superadminApi.setUserActive(row.id, !row.active),
+                  'Estado del usuario actualizado',
+                  [users.reload, stats.reload],
+                ),
+              })}
+            >
+              {row.active ? 'Desactivar' : 'Activar'}
+            </Button>
+          </div>
+        )),
     },
   ];
 
@@ -219,8 +225,8 @@ export default function SuperadminPage() {
       email: row?.email || '',
       password: '',
       role: row?.role || 'ENCARGADO_INVENTARIO',
-      establishmentId: row?.establishment_id
-        ? String(row.establishment_id)
+      establishmentId: row?.establishmentId
+        ? String(row.establishmentId)
         : (establishmentFilter ? String(establishmentFilter) : ''),
       active: row?.active ?? true,
     });

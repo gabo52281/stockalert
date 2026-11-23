@@ -83,7 +83,7 @@ export default function UsersPage() {
       email: row.email,
       password: '',
       role: row.role,
-      establishmentId: row.establishment_id ? String(row.establishment_id) : '',
+      establishmentId: row.establishmentId ? String(row.establishmentId) : '',
       active: row.active,
     });
     setErrors({});
@@ -92,6 +92,10 @@ export default function UsersPage() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (editing?.role === 'SUPERADMINISTRADOR') {
+      notifyError('La cuenta superadministrador no puede modificarse desde el panel');
+      return;
+    }
     if (!form.establishmentId) {
       setErrors({ establishmentId: 'Seleccione un establecimiento' });
       return;
@@ -136,37 +140,43 @@ export default function UsersPage() {
     },
     { key: 'role', label: 'Rol', render: (row) => <Badge tone={row.role === 'ADMINISTRADOR' ? 'danger' : row.role === 'ENCARGADO_INVENTARIO' ? 'info' : 'neutral'}>{row.roleLabel || row.role}</Badge> },
     ...(grouped ? [] : [{
-      key: 'establishment_name', label: 'Establecimiento',
-      render: (row) => row.establishment_name || <span className="cell-sub">Sin establecimiento</span>,
+      key: 'establishmentName', label: 'Establecimiento',
+      render: (row) => row.establishmentName
+        || <span className="cell-sub">{row.role === 'SUPERADMINISTRADOR' ? 'Sin establecimiento' : 'Sin asignar'}</span>,
     }]),
     { key: 'active', label: 'Estado', render: (row) => <StatusPill value={row.active ? 'active' : 'inactive'} /> },
     {
       key: 'actions', label: 'Acciones', align: 'right',
-      render: (row) => (
-        <div className="row-actions row-actions--icons">
-          <button type="button" title="Editar" onClick={() => openEdit(row)}><Pencil size={16} /></button>
-          <button type="button" title="Restablecer contraseña" onClick={() => setPasswordOpen(row)}><KeyRound size={16} /></button>
-          <button
-            type="button"
-            title={row.active ? 'Desactivar' : 'Activar'}
-            disabled={row.id === currentUser?.id}
-            onClick={() => setConfirm({ action: 'toggle', row })}
-          >
-            {row.active ? <UserX size={16} /> : <UserCheck size={16} />}
-          </button>
-        </div>
-      ),
+      render: (row) => (row.role === 'SUPERADMINISTRADOR'
+        ? <span className="cell-sub">No editable</span>
+        : (
+          <div className="row-actions row-actions--icons">
+            <button type="button" title="Editar" onClick={() => openEdit(row)}><Pencil size={16} /></button>
+            <button type="button" title="Restablecer contraseña" onClick={() => setPasswordOpen(row)}><KeyRound size={16} /></button>
+            <button
+              type="button"
+              title={row.active ? 'Desactivar' : 'Activar'}
+              disabled={row.id === currentUser?.id}
+              onClick={() => setConfirm({ action: 'toggle', row })}
+            >
+              {row.active ? <UserX size={16} /> : <UserCheck size={16} />}
+            </button>
+          </div>
+        )),
     },
   ];
 
   const groups = useMemo(() => {
     const byId = new Map();
     for (const row of groupedData?.data || []) {
-      const key = row.establishment_id ?? 'none';
+      const key = row.establishmentId ?? 'none';
       if (!byId.has(key)) {
         byId.set(key, {
           key,
-          name: row.establishment_name || 'Sin establecimiento',
+          name: row.establishmentName
+            || (row.role === 'SUPERADMINISTRADOR'
+              ? 'Sin establecimiento (superadministrador)'
+              : 'Sin establecimiento'),
           users: [],
         });
       }
